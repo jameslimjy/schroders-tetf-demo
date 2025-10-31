@@ -1,0 +1,14 @@
+{
+  "name": "tetf-backend-scripts",
+  "version": "1.0.0",
+  "description": "Helper scripts for offchain operations",
+  "type": "module",
+  "scripts": {
+    "createETF": "node createETF.js",
+    "tokenize": "node tokenize.js"
+  },
+  "dependencies": {
+    "ethers": "^6.0.0"
+  }
+}
+

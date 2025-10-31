@@ -1,0 +1,92 @@
+/**
+ * Action Panel Component Styles
+ */
+
+.action-panel {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+  margin-bottom: 16px;
+}
+
+.action-panel h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.action-group {
+  margin-bottom: 16px;
+}
+
+.action-group:last-child {
+  margin-bottom: 0;
+}
+
+.action-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+}
+
+.action-group input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.action-group input:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.action-group button {
+  width: 100%;
+  padding: 10px 16px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.action-group button:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.action-group button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.action-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.action-success {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  font-size: 13px;
+}
+

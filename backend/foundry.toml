@@ -1,0 +1,17 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+
+# Remappings for OpenZeppelin contracts
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/"
+]
+
+# Allow file system access for deployment scripts
+fs_permissions = [
+    { access = "write", path = "./deployment-info.json" },
+    { access = "read", path = "./data" }
+]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
