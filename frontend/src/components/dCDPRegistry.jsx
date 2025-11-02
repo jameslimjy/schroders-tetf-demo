@@ -7,8 +7,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useContracts } from '../hooks/useContracts';
+import { useDeploymentInfo } from '../hooks/useDeploymentInfo';
 import { formatTokenAmount, shortenAddress } from '../utils/contractHelpers';
-import { ACCOUNTS, ADDRESS_SHORT_LENGTH, CONTRACT_ADDRESSES } from '../utils/constants';
+import { ACCOUNTS, ADDRESS_SHORT_LENGTH } from '../utils/constants';
 import './dCDPRegistry.css';
 
 // Logo path for dCDP Registry
@@ -16,31 +17,43 @@ const LOGO_BASE_PATH = '/assets/logos/';
 
 // Helper function to check if an address is a contract address
 // This prevents calling balanceOf on contract addresses
-function isContractAddress(address, contracts) {
+// Uses dynamic contract addresses from deployment info
+function isContractAddress(address, contracts, contractAddresses) {
   if (!address || typeof address !== 'string') return false;
   
   const addrLower = address.toLowerCase();
-  const contractAddresses = [
-    CONTRACT_ADDRESSES.dCDP.toLowerCase(),
-    CONTRACT_ADDRESSES.SGDC.toLowerCase(),
-    CONTRACT_ADDRESSES.TES3.toLowerCase(),
-  ];
+  const contractAddressesList = [];
   
+  // Add addresses from deployment info (or fallback)
+  if (contractAddresses) {
+    if (contractAddresses.dCDP) {
+      contractAddressesList.push(contractAddresses.dCDP.toLowerCase());
+    }
+    if (contractAddresses.SGDC) {
+      contractAddressesList.push(contractAddresses.SGDC.toLowerCase());
+    }
+    if (contractAddresses.TES3) {
+      contractAddressesList.push(contractAddresses.TES3.toLowerCase());
+    }
+  }
+  
+  // Also check contract.target addresses (these should match, but double-check)
   if (contracts?.dcdp?.target) {
-    contractAddresses.push(contracts.dcdp.target.toLowerCase());
+    contractAddressesList.push(contracts.dcdp.target.toLowerCase());
   }
   if (contracts?.sgdc?.target) {
-    contractAddresses.push(contracts.sgdc.target.toLowerCase());
+    contractAddressesList.push(contracts.sgdc.target.toLowerCase());
   }
   if (contracts?.tes3?.target) {
-    contractAddresses.push(contracts.tes3.target.toLowerCase());
+    contractAddressesList.push(contracts.tes3.target.toLowerCase());
   }
   
-  return contractAddresses.includes(addrLower);
+  return contractAddressesList.includes(addrLower);
 }
 
 function DCDPRegistry() {
   const { contracts, isReady, getBalance } = useContracts();
+  const { contractAddresses } = useDeploymentInfo();
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,7 +80,7 @@ function DCDPRegistry() {
         // Verify the address is valid and not a contract address
         if (apAddress && 
             apAddress !== '0x0000000000000000000000000000000000000000' &&
-            !isContractAddress(apAddress, contracts)) {
+            !isContractAddress(apAddress, contracts, contractAddresses)) {
           addresses.AP = apAddress;
         } else {
           addresses.AP = ACCOUNTS.AP;
@@ -84,7 +97,7 @@ function DCDPRegistry() {
         // Also verify it's not a contract address
         if (thomasAddress && 
             thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-            !isContractAddress(thomasAddress, contracts)) {
+            !isContractAddress(thomasAddress, contracts, contractAddresses)) {
           addresses.THOMAS = thomasAddress;
         }
         // Do NOT fallback to ACCOUNTS.THOMAS - THOMAS should not appear until wallet is created
@@ -101,7 +114,7 @@ function DCDPRegistry() {
         AP: ACCOUNTS.AP,
       });
     }
-  }, [contracts.dcdp]);
+  }, [contracts, contractAddresses]);
 
   // Try to resolve owner IDs to addresses via dCDP contract
   useEffect(() => {
@@ -131,7 +144,7 @@ function DCDPRegistry() {
           // Verify the address is valid and not a contract address
           if (apAddress && 
               apAddress !== '0x0000000000000000000000000000000000000000' &&
-              !isContractAddress(apAddress, contracts)) {
+              !isContractAddress(apAddress, contracts, contractAddresses)) {
             accountsToCheck.AP = apAddress;
             console.log('[DCDPRegistry] Using AP address from contract:', apAddress);
           } else {
@@ -159,12 +172,12 @@ function DCDPRegistry() {
           // Also verify it's not a contract address
           if (thomasAddress && 
               thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-              !isContractAddress(thomasAddress, contracts)) {
+              !isContractAddress(thomasAddress, contracts, contractAddresses)) {
             console.log('[DCDPRegistry] Including THOMAS with address:', thomasAddress);
             accountsToCheck.THOMAS = thomasAddress;
           } else {
             console.log('[DCDPRegistry] THOMAS wallet not created yet, excluding from display');
-            if (thomasAddress && isContractAddress(thomasAddress, contracts)) {
+            if (thomasAddress && isContractAddress(thomasAddress, contracts, contractAddresses)) {
               console.warn('[DCDPRegistry] THOMAS address matches contract address - this is incorrect!');
             }
           }
@@ -183,7 +196,7 @@ function DCDPRegistry() {
       
       // Final safety check: ensure we're not using any contract address
       for (const [name, addr] of Object.entries(accountsToCheck)) {
-        if (addr && isContractAddress(addr, contracts)) {
+        if (addr && isContractAddress(addr, contracts, contractAddresses)) {
           console.error(`[DCDPRegistry] ERROR: ${name} address matches a contract address! Removing.`);
           if (name === 'AP') {
             // For AP, use the correct wallet address from constants
@@ -215,7 +228,7 @@ function DCDPRegistry() {
             const thomasAddress = await contracts.dcdp.getAddress('THOMAS');
             if (thomasAddress && 
                 thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-                !isContractAddress(thomasAddress, contracts)) {
+                !isContractAddress(thomasAddress, contracts, contractAddresses)) {
               accountsToCheck.THOMAS = thomasAddress;
               console.log('[DCDPRegistry] Adding THOMAS with contract address:', thomasAddress);
             } else {
@@ -244,12 +257,12 @@ function DCDPRegistry() {
         }
         
         // Final check: ensure address is not any contract address before calling balanceOf
-        if (isContractAddress(address, contracts)) {
+        if (isContractAddress(address, contracts, contractAddresses)) {
           console.error(`[DCDPRegistry] BLOCKED: Skipping ${accountName} - address matches a contract address: ${address}`);
           console.error(`[DCDPRegistry] Contract addresses:`, {
-            dCDP: CONTRACT_ADDRESSES.dCDP,
-            SGDC: CONTRACT_ADDRESSES.SGDC,
-            TES3: CONTRACT_ADDRESSES.TES3,
+            dCDP: contractAddresses?.dCDP,
+            SGDC: contractAddresses?.SGDC,
+            TES3: contractAddresses?.TES3,
             dcdpTarget: contracts.dcdp?.target,
           });
           continue;
@@ -296,7 +309,7 @@ function DCDPRegistry() {
     } finally {
       setLoading(false);
     }
-  }, [isReady, accountAddresses, contracts.dcdp, getBalance]);
+  }, [isReady, accountAddresses, contracts, getBalance, contractAddresses]);
 
   // Use refs to store the latest callback functions without causing re-renders
   // This prevents the event listener useEffect from re-running when callbacks change
@@ -490,7 +503,7 @@ function DCDPRegistry() {
           {parseFloat(tes3) > 0 && (
             <div className="dcdp-holding">
               <span className="dcdp-symbol">
-                TES3 ({CONTRACT_ADDRESSES.TES3}):
+                TES3 {contractAddresses?.TES3 ? `(${shortenAddress(contractAddresses.TES3)})` : ''}:
               </span>
               <span className="dcdp-quantity">{parseFloat(tes3).toLocaleString()}</span>
             </div>
