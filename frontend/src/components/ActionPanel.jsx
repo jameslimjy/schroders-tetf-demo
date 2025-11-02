@@ -454,7 +454,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const [onrampAmount, setOnrampAmount] = useState('1000');
   const [buyQuantity, setBuyQuantity] = useState('2.5');
   const [buyContractAddress, setBuyContractAddress] = useState('');
-  const [sellQuantity, setSellQuantity] = useState('3');
+  const [sellQuantity, setSellQuantity] = useState('1.3');
+  const [sellContractAddress, setSellContractAddress] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Onramp stablecoin
@@ -664,6 +665,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   };
 
   // Sell tokenized asset
+  // Rate: 100:1 (e.g., 1.3 TES3 = 130 SGDC)
+  // Transfers: TES3 from Thomas to AP, SGDC from AP to Thomas
   const handleSell = async () => {
     setLoading(true);
 
@@ -672,46 +675,176 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
-      const quantity = parseTokenAmount(sellQuantity);
-      const proceeds = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+      // Validate contract address
+      if (!sellContractAddress || !sellContractAddress.startsWith('0x')) {
+        throw new Error('Please enter a valid contract address');
+      }
 
-      // Check if Thomas has sufficient TES3 balance
-      const thomasBalance = await getBalance('tes3', ACCOUNTS.THOMAS);
-      if (BigInt(thomasBalance) < quantity) {
-        throw new Error(`Insufficient TES3 balance. Need ${formatTokenAmount(quantity)}, have ${formatTokenAmount(thomasBalance)}`);
+      // Parse quantity (e.g., 1.3 TES3)
+      const quantity = parseTokenAmount(sellQuantity);
+      const quantityNumber = parseFloat(sellQuantity);
+      
+      if (isNaN(quantityNumber) || quantityNumber <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Calculate SGDC proceeds using 100:1 rate
+      // If quantity is 1.3 TES3, proceeds is 130 SGDC
+      const sgdcProceeds = parseTokenAmount((quantityNumber * 100).toString());
+
+      // Get the token contract using the provided contract address
+      const tokenContract = new ethers.Contract(
+        sellContractAddress,
+        [
+          'function balanceOf(address) view returns (uint256)',
+          'function transfer(address,uint256) returns (bool)',
+          'function approve(address,uint256) returns (bool)',
+          'function transferFrom(address,address,uint256) returns (bool)'
+        ],
+        provider
+      );
+
+      // Check if Thomas has sufficient token balance
+      const thomasTokenBalance = await tokenContract.balanceOf(ACCOUNTS.THOMAS);
+      if (BigInt(thomasTokenBalance) < quantity) {
+        throw new Error(`Thomas has insufficient tokens. Need ${formatTokenAmount(quantity)}, Thomas has ${formatTokenAmount(thomasTokenBalance)}`);
       }
 
       // Check if AP has sufficient SGDC balance
       const apSgdcBalance = await getBalance('sgdc', ACCOUNTS.AP);
-      if (BigInt(apSgdcBalance) < proceeds) {
-        throw new Error(`AP has insufficient SGDC. Need ${formatTokenAmount(proceeds)}, AP has ${formatTokenAmount(apSgdcBalance)}`);
+      if (BigInt(apSgdcBalance) < BigInt(sgdcProceeds)) {
+        throw new Error(`AP has insufficient SGDC. Need ${formatTokenAmount(sgdcProceeds)}, AP has ${formatTokenAmount(apSgdcBalance)}`);
       }
 
       // Get signers
       const thomasSigner = getSigner(ACCOUNTS.THOMAS);
       const apSigner = getSigner(ACCOUNTS.AP);
       
-      const tes3 = getContractWithSigner('tes3', thomasSigner);
       const sgdc = getContractWithSigner('sgdc', apSigner);
+      const tokenWithSigner = tokenContract.connect(thomasSigner);
       
-      // Step 1: Thomas approves AP to spend TES3
-      const approveTes3Tx = await tes3.approve(ACCOUNTS.AP, quantity);
-      await waitForTransaction(approveTes3Tx, 60000);
+      // Step 1: Execute atomic swap
+      // Thomas transfers their own tokens to AP using transfer() (not transferFrom)
+      // Since Thomas owns the tokens, they can use transfer() directly without approval
+      console.log(`[Sell Asset] Step 1: Thomas transferring ${sellQuantity} tokens to AP...`);
       
-      // Step 2: AP approves Thomas to spend SGDC
-      const approveSgdcTx = await sgdc.approve(ACCOUNTS.THOMAS, proceeds);
-      await waitForTransaction(approveSgdcTx, 60000);
+      // Double-check Thomas's token balance right before transfer
+      const thomasTokenBalanceBeforeTransfer = await tokenContract.balanceOf(ACCOUNTS.THOMAS);
+      console.log(`[Sell Asset] Thomas token balance before transfer: ${formatTokenAmount(thomasTokenBalanceBeforeTransfer)}`);
+      console.log(`[Sell Asset] Required quantity: ${formatTokenAmount(quantity)}`);
       
-      // Step 3: Execute reverse swap
-      // Thomas transfers TES3 to AP
-      const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, quantity);
-      await waitForTransaction(tes3TransferTx, 60000);
+      if (BigInt(thomasTokenBalanceBeforeTransfer) < quantity) {
+        throw new Error(`Thomas has insufficient tokens. Need ${formatTokenAmount(quantity)}, Thomas has ${formatTokenAmount(thomasTokenBalanceBeforeTransfer)}`);
+      }
       
-      // AP transfers SGDC to Thomas
-      const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, proceeds);
-      await waitForTransaction(sgdcTransferTx, 60000);
+      let tokenTransferTx;
+      try {
+        // Use transfer() instead of transferFrom() since Thomas is sending their own tokens
+        tokenTransferTx = await tokenWithSigner.transfer(ACCOUNTS.AP, quantity);
+        console.log(`[Sell Asset] Token transfer transaction submitted: ${tokenTransferTx.hash}`);
+        const tokenReceipt = await waitForTransaction(tokenTransferTx, 60000);
+        console.log(`[Sell Asset] Token transfer confirmed in block ${tokenReceipt.blockNumber}`);
+        
+        // Check if transaction actually succeeded
+        if (tokenReceipt.status === 0) {
+          throw new Error('Token transfer transaction failed. Thomas may not have sufficient gas (ETH) or token balance.');
+        }
+      } catch (err) {
+        console.error('[Sell Asset] Token transfer failed:', err);
+        console.error('[Sell Asset] Error details:', {
+          message: err.message,
+          code: err.code,
+          reason: err.reason,
+          data: err.data,
+          transaction: err.transaction
+        });
+        
+        // Extract the actual revert reason if available
+        let errorMessage = err.message || 'Unknown error';
+        if (err.reason) {
+          errorMessage = err.reason;
+        } else if (err.data && err.data.message) {
+          errorMessage = err.data.message;
+        }
+        
+        if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient balance')) {
+          throw new Error('Thomas account has insufficient ETH for gas. Please fund the Thomas account.');
+        } else if (errorMessage.includes('execution reverted') || errorMessage.includes('ERC20')) {
+          if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
+            throw new Error(`Token transfer failed: Thomas has insufficient token balance. ${errorMessage}`);
+          }
+          throw new Error(`Token transfer failed: ${errorMessage}. Check that Thomas has sufficient token balance.`);
+        }
+        throw new Error(`Token transfer failed: ${errorMessage}`);
+      }
       
-      showSuccess(`Sell successful: ${sellQuantity} TES3 for ${formatTokenAmount(proceeds)} SGDC`);
+      // Step 2: AP transfers their own SGDC to Thomas using transfer() (not transferFrom)
+      // Since AP owns the SGDC, they can use transfer() directly without approval
+      console.log(`[Sell Asset] Step 2: AP transferring ${formatTokenAmount(sgdcProceeds)} SGDC to Thomas...`);
+      
+      // Double-check AP's SGDC balance right before transfer
+      const apSgdcBalanceBeforeTransfer = await getBalance('sgdc', ACCOUNTS.AP);
+      console.log(`[Sell Asset] AP SGDC balance before transfer: ${formatTokenAmount(apSgdcBalanceBeforeTransfer)}`);
+      console.log(`[Sell Asset] Required proceeds: ${formatTokenAmount(sgdcProceeds)}`);
+      
+      if (BigInt(apSgdcBalanceBeforeTransfer) < BigInt(sgdcProceeds)) {
+        throw new Error(`AP has insufficient SGDC. Need ${formatTokenAmount(sgdcProceeds)}, AP has ${formatTokenAmount(apSgdcBalanceBeforeTransfer)}`);
+      }
+      
+      let sgdcTransferTx;
+      try {
+        // Use transfer() instead of transferFrom() since AP is sending their own SGDC
+        sgdcTransferTx = await sgdc.transfer(ACCOUNTS.THOMAS, sgdcProceeds);
+        console.log(`[Sell Asset] SGDC transfer transaction submitted: ${sgdcTransferTx.hash}`);
+        const sgdcReceipt = await waitForTransaction(sgdcTransferTx, 60000);
+        console.log(`[Sell Asset] SGDC transfer confirmed in block ${sgdcReceipt.blockNumber}`);
+        
+        // Check if transaction actually succeeded
+        if (sgdcReceipt.status === 0) {
+          throw new Error('SGDC transfer transaction failed. AP may not have sufficient gas (ETH) or SGDC balance.');
+        }
+      } catch (err) {
+        console.error('[Sell Asset] SGDC transfer failed:', err);
+        console.error('[Sell Asset] Error details:', {
+          message: err.message,
+          code: err.code,
+          reason: err.reason,
+          data: err.data,
+          transaction: err.transaction
+        });
+        
+        // Extract the actual revert reason if available
+        let errorMessage = err.message || 'Unknown error';
+        if (err.reason) {
+          errorMessage = err.reason;
+        } else if (err.data && err.data.message) {
+          errorMessage = err.data.message;
+        }
+        
+        if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient balance')) {
+          throw new Error('AP account has insufficient ETH for gas. Please fund the AP account.');
+        } else if (errorMessage.includes('execution reverted') || errorMessage.includes('ERC20')) {
+          if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
+            throw new Error(`SGDC transfer failed: AP has insufficient SGDC balance. ${errorMessage}`);
+          }
+          throw new Error(`SGDC transfer failed: ${errorMessage}. Check that AP has sufficient SGDC balance.`);
+        }
+        throw new Error(`SGDC transfer failed: ${errorMessage}`);
+      }
+      
+      showSuccess(`Sell successful: ${sellQuantity} tokens for ${formatTokenAmount(sgdcProceeds)} SGDC`);
+      
+      // Trigger dCDP Registry refresh to show updated balances with phase in/out animation
+      window.dispatchEvent(new CustomEvent('dcdp-registry-updated'));
+      
+      // Trigger network visualizer animation: Thomas → Digital Exchange → dCDP, then reverse (same as buy)
+      window.dispatchEvent(new CustomEvent('buy-asset-executed', {
+        detail: {
+          quantity: sellQuantity,
+          contractAddress: sellContractAddress,
+          sgdcCost: formatTokenAmount(sgdcProceeds)
+        }
+      }));
     } catch (err) {
       console.error('Sell error:', err);
       showError(err.message || 'Failed to sell asset');
@@ -765,15 +898,23 @@ function ThomasActionsContent({ onOnrampSuccess }) {
 
       <div className="action-group">
         <div className="action-name">Sell Asset</div>
-        <div className="action-input-row">
-          <input
-            type="number"
-            step="0.1"
-            value={sellQuantity}
-            onChange={(e) => setSellQuantity(e.target.value)}
-            placeholder="insert quantity"
-          />
-          <button onClick={handleSell} disabled={loading} className="action-submit-btn" title="Sell Asset">
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="number"
+              step="0.1"
+              value={sellQuantity}
+              onChange={(e) => setSellQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+            <input
+              type="text"
+              value={sellContractAddress}
+              onChange={(e) => setSellContractAddress(e.target.value)}
+              placeholder="insert contract address"
+            />
+          </div>
+          <button onClick={handleSell} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Sell Asset">
             &gt;
             <i>✓</i>
           </button>
