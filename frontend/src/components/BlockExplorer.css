@@ -27,6 +27,30 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: auto;
+  min-height: 0; /* Important for flex scrolling */
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* Custom scrollbar styling to match CDP Registry */
+/* Webkit browsers (Chrome, Safari, Edge) */
+.block-explorer-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.block-explorer-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.block-explorer-content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.block-explorer-content::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .block-explorer-table {

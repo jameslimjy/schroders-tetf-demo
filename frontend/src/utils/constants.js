@@ -2,23 +2,26 @@
  * Application Constants
  * Contains contract addresses, RPC URLs, and configuration
  * 
- * Reads deployment info from backend/deployment-info.json
+ * NOTE: Contract addresses are now loaded dynamically from deployment-info.json
+ * These fallback addresses are only used if deployment-info.json cannot be loaded
  */
-
-// Contract addresses - these match backend/deployment-info.json
-// In production, you could fetch this dynamically, but for demo we use defaults
 
 // Blockchain connection
 export const RPC_URL = 'http://localhost:8545';
 export const CHAIN_ID = 31337; // Anvil default chain ID
 
-// Contract addresses from backend deployment
-// These match backend/deployment-info.json
-export const CONTRACT_ADDRESSES = {
+// FALLBACK contract addresses - only used if deployment-info.json cannot be loaded
+// In normal operation, addresses are loaded from deployment-info.json via useDeploymentInfo hook
+// Keep these for development resilience and error fallback
+export const CONTRACT_ADDRESSES_FALLBACK = {
   SGDC: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
   TES3: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
   dCDP: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
 };
+
+// DEPRECATED: Use useDeploymentInfo hook instead
+// Kept for backward compatibility during migration
+export const CONTRACT_ADDRESSES = CONTRACT_ADDRESSES_FALLBACK;
 
 // Anvil default account addresses (pre-funded with 10,000 ETH each)
 // Account #0: Admin & Stablecoin Provider

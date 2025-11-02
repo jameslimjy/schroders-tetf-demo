@@ -1,12 +1,14 @@
 /**
  * useContracts Hook
  * Manages contract instances and provides contract interaction utilities
+ * Loads contract addresses from deployment-info.json (golden source of truth)
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { createContract, createContractWithSigner } from '../utils/contractHelpers';
-import { CONTRACT_ADDRESSES } from '../utils/constants';
+import { CONTRACT_ADDRESSES_FALLBACK } from '../utils/constants';
 import { useBlockchain } from './useBlockchain';
+import { useDeploymentInfo } from './useDeploymentInfo';
 
 // Note: We cannot import ABIs from backend directory as it's outside src/
 // React/Webpack doesn't allow imports outside src/ for security reasons
@@ -54,6 +56,7 @@ const dCDP_ABI = dCDP_ABI_FULL || dCDP_ABI_MINIMAL;
  */
 export function useContracts() {
   const { provider, isConnected } = useBlockchain();
+  const { contractAddresses, loading: deploymentLoading, usingFallback } = useDeploymentInfo();
   const [contracts, setContracts] = useState({
     sgdc: null,
     tes3: null,
@@ -61,14 +64,23 @@ export function useContracts() {
   });
   const [error, setError] = useState(null);
 
-  // Initialize contracts when provider is ready
+  // Initialize contracts when provider is ready and deployment info is loaded
   useEffect(() => {
-    if (!isConnected || !provider) return;
+    if (!isConnected || !provider || deploymentLoading) return;
 
     try {
-      const sgdc = createContract(CONTRACT_ADDRESSES.SGDC, ERC20_ABI, provider);
-      const tes3 = createContract(CONTRACT_ADDRESSES.TES3, TES3_ABI_ACTUAL, provider);
-      const dcdp = createContract(CONTRACT_ADDRESSES.dCDP, dCDP_ABI, provider);
+      // Use addresses from deployment-info.json (or fallback if loading failed)
+      const addresses = contractAddresses || CONTRACT_ADDRESSES_FALLBACK;
+      
+      if (usingFallback) {
+        console.warn('[useContracts] Using fallback contract addresses. Deployment info not available.');
+      } else {
+        console.log('[useContracts] Using contract addresses from deployment-info.json:', addresses);
+      }
+
+      const sgdc = createContract(addresses.SGDC, ERC20_ABI, provider);
+      const tes3 = createContract(addresses.TES3, TES3_ABI_ACTUAL, provider);
+      const dcdp = createContract(addresses.dCDP, dCDP_ABI, provider);
 
       setContracts({
         sgdc,
@@ -80,7 +92,7 @@ export function useContracts() {
       console.error('Failed to initialize contracts:', err);
       setError(err.message);
     }
-  }, [isConnected, provider]);
+  }, [isConnected, provider, contractAddresses, deploymentLoading, usingFallback]);
 
   /**
    * Get contract with signer for write operations
@@ -93,7 +105,10 @@ export function useContracts() {
       throw new Error(`Contract ${contractName} not initialized`);
     }
 
-    // Map contract name to CONTRACT_ADDRESSES key
+    // Use addresses from deployment info (or fallback)
+    const addresses = contractAddresses || CONTRACT_ADDRESSES_FALLBACK;
+    
+    // Map contract name to address key
     // Handle case-insensitive matching and special cases
     let addressKey;
     if (contractName.toLowerCase() === 'dcdp') {
@@ -102,7 +117,7 @@ export function useContracts() {
       addressKey = contractName.toUpperCase();
     }
     
-    const address = CONTRACT_ADDRESSES[addressKey];
+    const address = addresses[addressKey];
     if (!address) {
       throw new Error(`Contract address not found for ${contractName} (key: ${addressKey})`);
     }
@@ -117,7 +132,7 @@ export function useContracts() {
     }
     
     return createContractWithSigner(address, abi, signer);
-  }, [contracts]);
+  }, [contracts, contractAddresses]);
 
   /**
    * Get token balance for an address
@@ -130,14 +145,45 @@ export function useContracts() {
       throw new Error(`Contract ${contractName} not initialized`);
     }
 
+    // Validate address before calling balanceOf
+    if (!address || 
+        address === '0x0000000000000000000000000000000000000000' ||
+        address.length !== 42 || // Ethereum addresses are 42 chars (0x + 40 hex)
+        !address.startsWith('0x')) {
+      console.warn(`[useContracts] Invalid address for balanceOf: ${address}`);
+      return '0'; // Return zero balance for invalid addresses
+    }
+
+    // CRITICAL: Check if this is a contract address before calling balanceOf
+    // Use current contract addresses (from deployment info or fallback)
+    const addresses = contractAddresses || CONTRACT_ADDRESSES_FALLBACK;
+    const addressLower = address.toLowerCase();
+    const contractAddressesLower = [
+      addresses.dCDP?.toLowerCase(),
+      addresses.SGDC?.toLowerCase(),
+      addresses.TES3?.toLowerCase(),
+    ].filter(Boolean); // Remove any undefined values
+    
+    if (contractAddressesLower.includes(addressLower)) {
+      console.error(`[useContracts] BLOCKED: Attempted to call balanceOf on contract address ${address} for ${contractName}`);
+      console.error(`[useContracts] Stack trace:`, new Error().stack);
+      return '0'; // Return zero instead of calling
+    }
+
     try {
       const balance = await contracts[contractName].balanceOf(address);
       return balance.toString();
     } catch (err) {
-      console.error(`Failed to get ${contractName} balance:`, err);
-      throw err;
+      // Handle decode errors gracefully (e.g., when contract returns 0x)
+      if (err.code === 'BAD_DATA' || err.message?.includes('could not decode')) {
+        console.warn(`[useContracts] Could not decode balance for ${contractName} at ${address}, assuming zero balance`);
+        return '0';
+      }
+      console.error(`[useContracts] Failed to get ${contractName} balance:`, err);
+      // Return zero instead of throwing for better UX
+      return '0';
     }
-  }, [contracts]);
+  }, [contracts, contractAddresses]);
 
   return {
     contracts,
