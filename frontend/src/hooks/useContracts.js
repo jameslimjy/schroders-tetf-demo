@@ -8,18 +8,13 @@ import { createContract, createContractWithSigner } from '../utils/contractHelpe
 import { CONTRACT_ADDRESSES } from '../utils/constants';
 import { useBlockchain } from './useBlockchain';
 
-// Try to load actual ABIs from backend, fallback to minimal ABIs
+// Note: We cannot import ABIs from backend directory as it's outside src/
+// React/Webpack doesn't allow imports outside src/ for security reasons
+// Instead, we use minimal ABIs that cover all necessary functions
+// If you need full ABIs, copy them to src/contracts/ or use the public folder
 let SGDC_ABI = null;
 let TES3_ABI = null;
 let dCDP_ABI_FULL = null;
-
-try {
-  SGDC_ABI = require('../../backend/out/SGDC.sol/SGDC.json').abi;
-  TES3_ABI = require('../../backend/out/TES3.sol/TES3.json').abi;
-  dCDP_ABI_FULL = require('../../backend/out/dCDP.sol/dCDP.json').abi;
-} catch (e) {
-  console.warn('Could not load contract ABIs from backend, using minimal ABIs');
-}
 
 // Minimal ERC-20 ABI (fallback if full ABI not available)
 const ERC20_ABI_MINIMAL = [
@@ -98,7 +93,20 @@ export function useContracts() {
       throw new Error(`Contract ${contractName} not initialized`);
     }
 
-    const address = CONTRACT_ADDRESSES[contractName.toUpperCase()];
+    // Map contract name to CONTRACT_ADDRESSES key
+    // Handle case-insensitive matching and special cases
+    let addressKey;
+    if (contractName.toLowerCase() === 'dcdp') {
+      addressKey = 'dCDP'; // Special case: dCDP has mixed case
+    } else {
+      addressKey = contractName.toUpperCase();
+    }
+    
+    const address = CONTRACT_ADDRESSES[addressKey];
+    if (!address) {
+      throw new Error(`Contract address not found for ${contractName} (key: ${addressKey})`);
+    }
+    
     let abi;
     if (contractName === 'dcdp') {
       abi = dCDP_ABI;

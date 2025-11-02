@@ -46,3 +46,16 @@ export const TOKEN_DECIMALS = 18;
 export const ADDRESS_SHORT_LENGTH = 6; // Characters to show before/after ... in shortened addresses
 export const MAX_TRANSACTIONS_DISPLAY = 20; // Maximum transactions to show in block explorer
 
+// Unique identifier to owner ID mapping
+// Maps unique identifiers (SN codes) to owner IDs for wallet creation
+export const UNIQUE_ID_TO_OWNER_ID = {
+  'SN91X81J21': 'AP',
+  'SN72K45M83': 'THOMAS',
+};
+
+// Owner ID to unique identifier mapping (reverse lookup)
+export const OWNER_ID_TO_UNIQUE_ID = {
+  'AP': 'SN91X81J21',
+  'THOMAS': 'SN72K45M83',
+};
+

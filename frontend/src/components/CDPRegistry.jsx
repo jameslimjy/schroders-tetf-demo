@@ -8,6 +8,51 @@ import React, { useState, useEffect } from 'react';
 import { CDP_REGISTRY_API } from '../utils/constants';
 import './CDPRegistry.css';
 
+// Logo path for CDP Registry
+const LOGO_BASE_PATH = '/assets/logos/';
+
+// Stock symbol to name mapping
+// This maps Singapore stock symbols to their company names
+// Common Singapore stock symbols and their corresponding company names
+const STOCK_NAMES = {
+  'D05': 'DBS Group Holdings Ltd',
+  'O39': 'Overseas-Chinese Banking Corporation Ltd',
+  'U11': 'United Overseas Bank Ltd',
+  'Z74': 'Singapore Telecommunications Ltd',
+  'C52': 'CapitaLand Investment Ltd',
+  'C31': 'CapitaLand Mall Trust',
+  'C09': 'City Developments Ltd',
+  'G13': 'Global Investments Ltd',
+  'BN4': 'Keppel Corporation Ltd',
+  'S68': 'Singapore Exchange Ltd',
+  'N2IU': 'NetLink NBN Trust',
+  'U96': 'Sembcorp Industries Ltd',
+  'V03': 'Venture Corporation Ltd',
+  'S58': 'SATS Ltd',
+  'Y92': 'Yangzijiang Shipbuilding Holdings Ltd',
+  'ME8U': 'Mapletree Industrial Trust',
+  'M44U': 'Mapletree Logistics Trust',
+  'A17U': 'Ascendas Real Estate Investment Trust',
+  'J36': 'Jardine Matheson Holdings Ltd',
+  'C38U': 'CapitaLand Integrated Commercial Trust',
+  'S63': 'Singapore Technologies Engineering Ltd',
+  'BS6': 'BS6 Holdings Ltd',
+  'F34': 'F34 Holdings Ltd',
+  'BN2': 'BN2 Holdings Ltd',
+  'H78': 'H78 Holdings Ltd',
+  'N21': 'N21 Holdings Ltd',
+  'S51': 'S51 Holdings Ltd',
+  'AWX': 'AWX Holdings Ltd',
+  'D01': 'D01 Holdings Ltd',
+  'S59': 'S59 Holdings Ltd',
+  'ES3': 'SPDR Straits Times Index ETF'
+};
+
+// Function to get stock name from symbol, returns symbol if not found
+function getStockName(symbol) {
+  return STOCK_NAMES[symbol] || symbol;
+}
+
 function CDPRegistry() {
   const [registryData, setRegistryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,20 +62,18 @@ function CDPRegistry() {
   useEffect(() => {
     async function loadRegistry() {
       try {
-        // Try to fetch from backend/data directory first
-        // Fallback to public/api if backend not accessible
-        let response;
-        try {
-          // Try backend path (may not work in browser, but worth trying)
-          response = await fetch('../../backend/data/cdp-registry.json');
-          if (!response.ok) throw new Error('Backend path failed');
-        } catch (e) {
-          // Fallback to public API endpoint
-          response = await fetch(CDP_REGISTRY_API);
-        }
+        // Fetch from public API endpoint
+        // Note: In browser, we can only access files in the public directory
+        const response = await fetch(CDP_REGISTRY_API);
         
         if (!response.ok) {
-          throw new Error('Failed to load CDP registry');
+          throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+        }
+        
+        // Check if response is actually JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Response is not JSON - received HTML error page instead');
         }
         
         const data = await response.json();
@@ -61,7 +104,7 @@ function CDPRegistry() {
   }, []);
 
   // Render account balances
-  const renderAccount = (accountId, accountData) => {
+  const renderAccount = (accountId, accountData, uniqueId) => {
     const { stocks = {}, etfs = {} } = accountData || {};
     
     // Combine stocks and ETFs for display
@@ -71,7 +114,9 @@ function CDPRegistry() {
     if (holdingsEntries.length === 0) {
       return (
         <div key={accountId} className="cdp-account">
-          <div className="cdp-account-name">{accountId}:</div>
+          <div className="cdp-account-name">
+            {accountId} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
+          </div>
           <div className="cdp-empty">No holdings</div>
         </div>
       );
@@ -79,11 +124,13 @@ function CDPRegistry() {
 
     return (
       <div key={accountId} className="cdp-account">
-        <div className="cdp-account-name">{accountId}:</div>
+        <div className="cdp-account-name">
+          {accountId} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
+        </div>
         <div className="cdp-holdings">
           {holdingsEntries.map(([symbol, quantity]) => (
             <div key={symbol} className="cdp-holding">
-              <span className="cdp-symbol">{symbol}:</span>
+              <span className="cdp-symbol">{symbol} ({getStockName(symbol)}):</span>
               <span className="cdp-quantity">{quantity.toLocaleString()}</span>
             </div>
           ))}
@@ -95,7 +142,15 @@ function CDPRegistry() {
   if (loading) {
     return (
       <div className="cdp-registry">
+        <div className="cdp-registry-header">
+          <img 
+            src={`${LOGO_BASE_PATH}cdp-logo.png`} 
+            alt="CDP" 
+            className="cdp-registry-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
         <h3>CDP Registry</h3>
+        </div>
         <div className="cdp-loading">Loading...</div>
       </div>
     );
@@ -104,21 +159,54 @@ function CDPRegistry() {
   if (error && !registryData) {
     return (
       <div className="cdp-registry">
+        <div className="cdp-registry-header">
+          <img 
+            src={`${LOGO_BASE_PATH}cdp-logo.png`} 
+            alt="CDP" 
+            className="cdp-registry-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
         <h3>CDP Registry</h3>
+        </div>
         <div className="cdp-error">Error: {error}</div>
       </div>
     );
   }
 
   const accounts = registryData?.accounts || {};
+  const ownerIds = registryData?.owner_ids || {};
+
+  // Sort accounts to display THOMAS before AP
+  // Define the desired display order
+  const accountOrder = ['THOMAS', 'AP'];
+  const sortedAccounts = Object.entries(accounts).sort(([idA], [idB]) => {
+    const indexA = accountOrder.indexOf(idA);
+    const indexB = accountOrder.indexOf(idB);
+    // If both are in the order list, sort by their position
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    // If only one is in the list, prioritize it
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    // If neither is in the list, maintain original order
+    return 0;
+  });
 
   return (
     <div className="cdp-registry">
+      <div className="cdp-registry-header">
+        <img 
+          src={`${LOGO_BASE_PATH}cdp-logo.png`} 
+          alt="CDP" 
+          className="cdp-registry-logo"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
       <h3>CDP Registry</h3>
+      </div>
       <div className="cdp-registry-content">
-        {Object.entries(accounts).map(([accountId, accountData]) =>
-          renderAccount(accountId, accountData)
-        )}
+        {sortedAccounts.map(([accountId, accountData]) => {
+          const uniqueId = ownerIds[accountId];
+          return renderAccount(accountId, accountData, uniqueId);
+        })}
       </div>
       {error && <div className="cdp-warning">Warning: {error}</div>}
     </div>

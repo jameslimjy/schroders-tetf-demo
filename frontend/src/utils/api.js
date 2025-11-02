@@ -14,8 +14,16 @@ export async function fetchCDPRegistry() {
   try {
     const response = await fetch(CDP_REGISTRY_API);
     if (!response.ok) {
-      throw new Error(`Failed to fetch CDP registry: ${response.statusText}`);
+      throw new Error(`Failed to fetch CDP registry: ${response.status} ${response.statusText}`);
     }
+    
+    // Check if response is actually JSON before parsing
+    // This prevents "Unexpected token '<'" errors when HTML error pages are returned
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Response is not JSON - received HTML error page instead');
+    }
+    
     return await response.json();
   } catch (error) {
     console.error('Error fetching CDP registry:', error);

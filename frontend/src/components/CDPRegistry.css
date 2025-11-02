@@ -12,13 +12,29 @@
   flex-direction: column;
 }
 
-.cdp-registry h3 {
-  margin: 0 0 12px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  border-bottom: 2px solid #000;
+/* Registry header with logo */
+.cdp-registry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
   padding-bottom: 8px;
+  border-bottom: 3px solid #0f2859;
+}
+
+.cdp-registry-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.cdp-registry h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f2859;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
 }
 
 .cdp-registry-content {
@@ -38,6 +54,12 @@
   margin-bottom: 6px;
 }
 
+.cdp-unique-id {
+  font-weight: 400;
+  color: #666;
+  font-size: 0.9em;
+}
+
 .cdp-holdings {
   margin-left: 16px;
 }
@@ -50,7 +72,7 @@
 }
 
 .cdp-symbol {
-  color: #666;
+  color: #000;
   font-weight: 500;
 }
 
@@ -61,7 +83,7 @@
 
 .cdp-empty {
   margin-left: 16px;
-  color: #999;
+  color: #000;
   font-style: italic;
 }
 

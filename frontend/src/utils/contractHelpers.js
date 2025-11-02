@@ -69,11 +69,24 @@ export function shortenAddress(address, chars = 6) {
 }
 
 /**
- * Wait for transaction confirmation
+ * Wait for transaction confirmation with timeout
  * @param {ethers.ContractTransactionResponse} tx - Transaction response
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 120000 = 2 minutes)
  * @returns {Promise<ethers.ContractTransactionReceipt>} Transaction receipt
  */
-export async function waitForTransaction(tx) {
-  return await tx.wait();
+export async function waitForTransaction(tx, timeoutMs = 120000) {
+  // Create a promise that rejects after timeout
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Transaction timeout after ${timeoutMs}ms. The transaction may still be pending.`));
+    }, timeoutMs);
+  });
+
+  // Race between transaction wait and timeout
+  // Use Promise.race to ensure we don't wait indefinitely
+  return Promise.race([
+    tx.wait(),
+    timeoutPromise
+  ]);
 }
 
