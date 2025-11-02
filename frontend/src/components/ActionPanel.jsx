@@ -9,8 +9,10 @@ import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import { useContracts } from '../hooks/useContracts';
 import { useBlockchain } from '../hooks/useBlockchain';
-import { parseTokenAmount, formatTokenAmount } from '../utils/contractHelpers';
-import { TES3_PRICE, ACCOUNTS } from '../utils/constants';
+import { useToastContext } from '../contexts/ToastContext';
+import { parseTokenAmount, formatTokenAmount, waitForTransaction } from '../utils/contractHelpers';
+import { TES3_PRICE, ACCOUNTS, UNIQUE_ID_TO_OWNER_ID } from '../utils/constants';
+import { createETF, tokenizeSecurity } from '../utils/api';
 import './ActionPanel.css';
 
 /**
@@ -50,7 +52,8 @@ export function ThomasActions() {
       
       // Mint SGDC to Thomas
       const tx = await sgdc.mint(ACCOUNTS.THOMAS, amount);
-      await tx.wait();
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
       
       setSuccess(`Onramp successful: ${onrampAmount} SGDC minted to Thomas`);
     } catch (err) {
@@ -95,20 +98,20 @@ export function ThomasActions() {
       
       // Step 1: Thomas approves AP to spend SGDC
       const approveTx = await sgdc.approve(ACCOUNTS.AP, cost);
-      await approveTx.wait();
+      await waitForTransaction(approveTx, 60000);
       
       // Step 2: AP approves Thomas to spend TES3
       const approveTes3Tx = await tes3.approve(ACCOUNTS.THOMAS, quantity);
-      await approveTes3Tx.wait();
+      await waitForTransaction(approveTes3Tx, 60000);
       
       // Step 3: Execute atomic swap
       // AP transfers TES3 to Thomas
       const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, quantity);
-      await tes3TransferTx.wait();
+      await waitForTransaction(tes3TransferTx, 60000);
       
       // Thomas transfers SGDC to AP
       const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, cost);
-      await sgdcTransferTx.wait();
+      await waitForTransaction(sgdcTransferTx, 60000);
       
       setSuccess(`Buy successful: ${buyQuantity} TES3 for ${formatTokenAmount(cost)} SGDC`);
     } catch (err) {
@@ -153,20 +156,20 @@ export function ThomasActions() {
       
       // Step 1: Thomas approves AP to spend TES3
       const approveTes3Tx = await tes3.approve(ACCOUNTS.AP, quantity);
-      await approveTes3Tx.wait();
+      await waitForTransaction(approveTes3Tx, 60000);
       
       // Step 2: AP approves Thomas to spend SGDC
       const approveSgdcTx = await sgdc.approve(ACCOUNTS.THOMAS, proceeds);
-      await approveSgdcTx.wait();
+      await waitForTransaction(approveSgdcTx, 60000);
       
       // Step 3: Execute reverse swap
       // Thomas transfers TES3 to AP
       const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, quantity);
-      await tes3TransferTx.wait();
+      await waitForTransaction(tes3TransferTx, 60000);
       
       // AP transfers SGDC to Thomas
       const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, proceeds);
-      await sgdcTransferTx.wait();
+      await waitForTransaction(sgdcTransferTx, 60000);
       
       setSuccess(`Sell successful: ${sellQuantity} TES3 for ${formatTokenAmount(proceeds)} SGDC`);
     } catch (err) {
@@ -235,10 +238,10 @@ export function ThomasActions() {
 export function DCDPActions() {
   const { contracts, getContractWithSigner } = useContracts();
   const { provider, getSigner } = useBlockchain();
-  const [tokenizeOwnerId, setTokenizeOwnerId] = useState('AP');
+  const [tokenizeOwnerId, setTokenizeOwnerId] = useState('SN91X81J21');
   const [tokenizeQuantity, setTokenizeQuantity] = useState('50');
   const [tokenizeSymbol, setTokenizeSymbol] = useState('ES3');
-  const [walletOwnerId, setWalletOwnerId] = useState('THOMAS');
+  const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -260,16 +263,21 @@ export function DCDPActions() {
 
       const quantity = parseTokenAmount(tokenizeQuantity);
       
+      // Map unique identifier (SN code) to owner ID
+      // User inputs unique identifier, but contract needs owner ID
+      const ownerId = UNIQUE_ID_TO_OWNER_ID[tokenizeOwnerId.toUpperCase()] || tokenizeOwnerId;
+      
       // Get admin signer (Account #0)
       const adminSigner = getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.tokenize() function
+      // Call dCDP.tokenize() function with owner ID (not unique identifier)
       // Note: This assumes offchain CDP registry validation has occurred
-      const tx = await dcdp.tokenize(tokenizeOwnerId, quantity, tokenizeSymbol);
-      await tx.wait();
+      const tx = await dcdp.tokenize(ownerId, quantity, tokenizeSymbol);
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
       
-      setSuccess(`Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} for ${tokenizeOwnerId}`);
+      setSuccess(`Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} for ${tokenizeOwnerId} (${ownerId})`);
     } catch (err) {
       console.error('Tokenize error:', err);
       setError(err.message || 'Failed to tokenize');
@@ -288,14 +296,18 @@ export function DCDPActions() {
         throw new Error('Provider not connected');
       }
 
+      // Map unique identifier (SN code) to owner ID
+      // User inputs unique identifier, but contract needs owner ID
+      const ownerId = UNIQUE_ID_TO_OWNER_ID[walletOwnerId.toUpperCase()] || walletOwnerId;
+      
       // Get the wallet address for the owner_id
       // For THOMAS, use ACCOUNTS.THOMAS
       // For AP, use ACCOUNTS.AP
       // In a real scenario, this would be generated by the wallet provider
       let newAddress;
-      if (walletOwnerId.toUpperCase() === 'THOMAS') {
+      if (ownerId.toUpperCase() === 'THOMAS') {
         newAddress = ACCOUNTS.THOMAS;
-      } else if (walletOwnerId.toUpperCase() === 'AP') {
+      } else if (ownerId.toUpperCase() === 'AP') {
         newAddress = ACCOUNTS.AP;
       } else {
         // Generate a random address for other owner IDs
@@ -307,11 +319,12 @@ export function DCDPActions() {
       const adminSigner = await provider.getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.createWallet() function
-      const tx = await dcdp.createWallet(walletOwnerId, newAddress);
-      await tx.wait();
+      // Call dCDP.createWallet() function with owner ID (not unique identifier)
+      const tx = await dcdp.createWallet(ownerId, newAddress);
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
       
-      setSuccess(`Wallet created: ${walletOwnerId} -> ${newAddress.slice(0, 10)}...`);
+      setSuccess(`Wallet created: ${walletOwnerId} (${ownerId}) -> ${newAddress.slice(0, 10)}...`);
     } catch (err) {
       console.error('Create wallet error:', err);
       setError(err.message || 'Failed to create wallet');
@@ -330,7 +343,7 @@ export function DCDPActions() {
           type="text"
           value={tokenizeOwnerId}
           onChange={(e) => setTokenizeOwnerId(e.target.value)}
-          placeholder="AP"
+          placeholder="insert unique ID (e.g., SN91X81J21)"
         />
         <label>Quantity</label>
         <input
@@ -371,6 +384,518 @@ export function DCDPActions() {
 }
 
 /**
+ * Combined Actions Panel
+ * Combines all three stakeholder action sections into a single panel
+ * Sections: Thomas, dCDP, AP
+ */
+export function CombinedActions({ onOnrampSuccess }) {
+  const LOGO_BASE_PATH = '/assets/logos/';
+
+  return (
+    <div className="action-panel combined-actions">
+      {/* Header */}
+      <div className="action-panel-header">
+        <h3>Action Panel</h3>
+      </div>
+
+      {/* Thomas Section */}
+      <div className="action-section action-section-thomas">
+        <div className="action-section-header">
+          <img 
+            src={`${LOGO_BASE_PATH}thomas-logo.png`} 
+            alt="Thomas" 
+            className="action-section-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <h4>Thomas</h4>
+        </div>
+        <ThomasActionsContent onOnrampSuccess={onOnrampSuccess} />
+      </div>
+
+      {/* dCDP Section */}
+      <div className="action-section action-section-dcdp">
+        <div className="action-section-header">
+          <img 
+            src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
+            alt="dCDP" 
+            className="action-section-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <h4>dCDP</h4>
+        </div>
+        <DCDPActionsContent />
+      </div>
+
+      {/* AP Section */}
+      <div className="action-section action-section-ap">
+        <div className="action-section-header">
+          <img 
+            src={`${LOGO_BASE_PATH}ap-logo.png`} 
+            alt="AP" 
+            className="action-section-logo"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <h4>AP</h4>
+        </div>
+        <APActionsContent />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Thomas Actions Content (extracted for reuse)
+ * Accepts onOnrampSuccess callback to trigger network visualizer animation
+ */
+function ThomasActionsContent({ onOnrampSuccess }) {
+  const { contracts, getContractWithSigner, getBalance } = useContracts();
+  const { provider, getSigner } = useBlockchain();
+  const { showSuccess, showError } = useToastContext();
+  const [onrampAmount, setOnrampAmount] = useState('1000');
+  const [buyQuantity, setBuyQuantity] = useState('5.5');
+  const [sellQuantity, setSellQuantity] = useState('3');
+  const [loading, setLoading] = useState(false);
+
+  // Onramp stablecoin
+  const handleOnramp = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      const amount = parseTokenAmount(onrampAmount);
+      
+      // Get stablecoin provider signer (Account #0 / Admin)
+      const stablecoinSigner = getSigner(ACCOUNTS.STABLECOIN_PROVIDER);
+      const sgdc = getContractWithSigner('sgdc', stablecoinSigner);
+      
+      // Mint SGDC to Thomas
+      const tx = await sgdc.mint(ACCOUNTS.THOMAS, amount);
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
+      
+      showSuccess(`Onramp successful: ${onrampAmount} SGDC minted to Thomas`);
+      
+      // Trigger network visualizer animation after successful onramp
+      // This will show the cash flow and stablecoin flow animation
+      if (onOnrampSuccess) {
+        onOnrampSuccess();
+      }
+    } catch (err) {
+      console.error('Onramp error:', err);
+      showError(err.message || 'Failed to onramp stablecoin');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Buy tokenized asset
+  const handleBuy = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      const quantity = parseTokenAmount(buyQuantity);
+      const cost = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+
+      // Check if Thomas has sufficient SGDC balance
+      const thomasBalance = await getBalance('sgdc', ACCOUNTS.THOMAS);
+      if (BigInt(thomasBalance) < cost) {
+        throw new Error(`Insufficient SGDC balance. Need ${formatTokenAmount(cost)}, have ${formatTokenAmount(thomasBalance)}`);
+      }
+
+      // Check if AP has sufficient TES3 balance
+      const apTes3Balance = await getBalance('tes3', ACCOUNTS.AP);
+      if (BigInt(apTes3Balance) < quantity) {
+        throw new Error(`AP has insufficient TES3. Need ${formatTokenAmount(quantity)}, AP has ${formatTokenAmount(apTes3Balance)}`);
+      }
+
+      // Get signers
+      const thomasSigner = getSigner(ACCOUNTS.THOMAS);
+      const apSigner = getSigner(ACCOUNTS.AP);
+      
+      const sgdc = getContractWithSigner('sgdc', thomasSigner);
+      const tes3 = getContractWithSigner('tes3', apSigner);
+      
+      // Step 1: Thomas approves AP to spend SGDC
+      const approveTx = await sgdc.approve(ACCOUNTS.AP, cost);
+      await waitForTransaction(approveTx, 60000);
+      
+      // Step 2: AP approves Thomas to spend TES3
+      const approveTes3Tx = await tes3.approve(ACCOUNTS.THOMAS, quantity);
+      await waitForTransaction(approveTes3Tx, 60000);
+      
+      // Step 3: Execute atomic swap
+      // AP transfers TES3 to Thomas
+      const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, quantity);
+      await waitForTransaction(tes3TransferTx, 60000);
+      
+      // Thomas transfers SGDC to AP
+      const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, cost);
+      await waitForTransaction(sgdcTransferTx, 60000);
+      
+      showSuccess(`Buy successful: ${buyQuantity} TES3 for ${formatTokenAmount(cost)} SGDC`);
+    } catch (err) {
+      console.error('Buy error:', err);
+      showError(err.message || 'Failed to buy asset');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sell tokenized asset
+  const handleSell = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      const quantity = parseTokenAmount(sellQuantity);
+      const proceeds = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+
+      // Check if Thomas has sufficient TES3 balance
+      const thomasBalance = await getBalance('tes3', ACCOUNTS.THOMAS);
+      if (BigInt(thomasBalance) < quantity) {
+        throw new Error(`Insufficient TES3 balance. Need ${formatTokenAmount(quantity)}, have ${formatTokenAmount(thomasBalance)}`);
+      }
+
+      // Check if AP has sufficient SGDC balance
+      const apSgdcBalance = await getBalance('sgdc', ACCOUNTS.AP);
+      if (BigInt(apSgdcBalance) < proceeds) {
+        throw new Error(`AP has insufficient SGDC. Need ${formatTokenAmount(proceeds)}, AP has ${formatTokenAmount(apSgdcBalance)}`);
+      }
+
+      // Get signers
+      const thomasSigner = getSigner(ACCOUNTS.THOMAS);
+      const apSigner = getSigner(ACCOUNTS.AP);
+      
+      const tes3 = getContractWithSigner('tes3', thomasSigner);
+      const sgdc = getContractWithSigner('sgdc', apSigner);
+      
+      // Step 1: Thomas approves AP to spend TES3
+      const approveTes3Tx = await tes3.approve(ACCOUNTS.AP, quantity);
+      await waitForTransaction(approveTes3Tx, 60000);
+      
+      // Step 2: AP approves Thomas to spend SGDC
+      const approveSgdcTx = await sgdc.approve(ACCOUNTS.THOMAS, proceeds);
+      await waitForTransaction(approveSgdcTx, 60000);
+      
+      // Step 3: Execute reverse swap
+      // Thomas transfers TES3 to AP
+      const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, quantity);
+      await waitForTransaction(tes3TransferTx, 60000);
+      
+      // AP transfers SGDC to Thomas
+      const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, proceeds);
+      await waitForTransaction(sgdcTransferTx, 60000);
+      
+      showSuccess(`Sell successful: ${sellQuantity} TES3 for ${formatTokenAmount(proceeds)} SGDC`);
+    } catch (err) {
+      console.error('Sell error:', err);
+      showError(err.message || 'Failed to sell asset');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="action-group">
+        <div className="action-name">Onramp Cash</div>
+        <div className="action-input-row">
+          <input
+            type="number"
+            value={onrampAmount}
+            onChange={(e) => setOnrampAmount(e.target.value)}
+            placeholder="insert amount"
+          />
+          <button onClick={handleOnramp} disabled={loading} className="action-submit-btn" title="Onramp">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+
+      <div className="action-group">
+        <div className="action-name">Buy Asset</div>
+        <div className="action-input-row">
+          <input
+            type="number"
+            step="0.1"
+            value={buyQuantity}
+            onChange={(e) => setBuyQuantity(e.target.value)}
+            placeholder="insert quantity"
+          />
+          <button onClick={handleBuy} disabled={loading} className="action-submit-btn" title="Buy Asset">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+
+      <div className="action-group">
+        <div className="action-name">Sell Asset</div>
+        <div className="action-input-row">
+          <input
+            type="number"
+            step="0.1"
+            value={sellQuantity}
+            onChange={(e) => setSellQuantity(e.target.value)}
+            placeholder="insert quantity"
+          />
+          <button onClick={handleSell} disabled={loading} className="action-submit-btn" title="Sell Asset">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * dCDP Actions Content (extracted for reuse)
+ */
+function DCDPActionsContent() {
+  const { contracts, getContractWithSigner } = useContracts();
+  const { provider, getSigner } = useBlockchain();
+  const { showSuccess, showError } = useToastContext();
+  const [tokenizeOwnerId, setTokenizeOwnerId] = useState('SN91X81J21');
+  const [tokenizeQuantity, setTokenizeQuantity] = useState('50');
+  const [tokenizeSymbol, setTokenizeSymbol] = useState('ES3');
+  const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
+  const [loading, setLoading] = useState(false);
+
+  // Tokenize securities
+  // This function tokenizes traditional securities by:
+  // 1. Calling the dCDP contract to mint TES3 tokens onchain
+  // 2. Updating the CDP registry to decrease ES3 balance
+  // 3. Triggering animations in both registries
+  const handleTokenize = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      const quantity = parseFloat(tokenizeQuantity);
+      
+      // Validate quantity is a positive number
+      if (isNaN(quantity) || quantity <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Map unique identifier (SN code) to owner ID
+      // User inputs unique identifier, but contract needs owner ID
+      const ownerId = UNIQUE_ID_TO_OWNER_ID[tokenizeOwnerId.toUpperCase()] || tokenizeOwnerId;
+      
+      // Get admin signer (Account #0)
+      const adminSigner = getSigner(ACCOUNTS.ADMIN);
+      const dcdp = getContractWithSigner('dcdp', adminSigner);
+      
+      // Convert quantity to wei (18 decimals) for contract call
+      const quantityWei = parseTokenAmount(tokenizeQuantity);
+      
+      // Call dCDP.tokenize() function - this mints TES3 tokens onchain
+      const tx = await dcdp.tokenize(ownerId, quantityWei, tokenizeSymbol);
+      // Wait for transaction with timeout to prevent indefinite hanging
+      const receipt = await waitForTransaction(tx, 60000); // 60 second timeout
+      
+      // Update CDP registry (decrease ES3 balance in localStorage)
+      await tokenizeSecurity(ownerId, quantity, tokenizeSymbol);
+      
+      // Trigger CDP registry animation immediately
+      window.dispatchEvent(new Event('cdp-registry-updated'));
+      
+      // Wait a bit longer for blockchain state to update, then trigger dCDP registry refresh
+      // The Transfer event listener will also catch this, but we trigger a manual refresh too
+      setTimeout(() => {
+        window.dispatchEvent(new Event('dcdp-registry-updated'));
+      }, 1500); // Wait 1.5 seconds for blockchain state to update
+      
+      showSuccess(`Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} for ${tokenizeOwnerId} (${ownerId})`);
+    } catch (err) {
+      console.error('Tokenize error:', err);
+      showError(err.message || 'Failed to tokenize');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create wallet
+  const handleCreateWallet = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      // Get the wallet address for the owner_id
+      // For THOMAS, use ACCOUNTS.THOMAS
+      // For AP, use ACCOUNTS.AP
+      // In a real scenario, this would be generated by the wallet provider
+      let newAddress;
+      if (walletOwnerId.toUpperCase() === 'THOMAS') {
+        newAddress = ACCOUNTS.THOMAS;
+      } else if (walletOwnerId.toUpperCase() === 'AP') {
+        newAddress = ACCOUNTS.AP;
+      } else {
+        // Generate a random address for other owner IDs
+        const randomWallet = ethers.Wallet.createRandom();
+        newAddress = randomWallet.address;
+      }
+      
+      // Get admin signer
+      const adminSigner = await provider.getSigner(ACCOUNTS.ADMIN);
+      const dcdp = getContractWithSigner('dcdp', adminSigner);
+      
+      // Call dCDP.createWallet() function
+      const tx = await dcdp.createWallet(walletOwnerId, newAddress);
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
+      
+      showSuccess(`Wallet created: ${walletOwnerId} -> ${newAddress.slice(0, 10)}...`);
+    } catch (err) {
+      console.error('Create wallet error:', err);
+      showError(err.message || 'Failed to create wallet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="action-group">
+        <div className="action-name">Tokenize</div>
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="text"
+              value={tokenizeOwnerId}
+              onChange={(e) => setTokenizeOwnerId(e.target.value)}
+              placeholder="insert unique ID (e.g., SN72K45M83)"
+            />
+            <input
+              type="number"
+              value={tokenizeQuantity}
+              onChange={(e) => setTokenizeQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+            <input
+              type="text"
+              value={tokenizeSymbol}
+              onChange={(e) => setTokenizeSymbol(e.target.value)}
+              placeholder="insert symbol"
+            />
+          </div>
+          <button onClick={handleTokenize} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Tokenize">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+
+      <div className="action-group">
+        <div className="action-name">Create Wallet</div>
+        <div className="action-input-row">
+          <input
+            type="text"
+            value={walletOwnerId}
+            onChange={(e) => setWalletOwnerId(e.target.value)}
+            placeholder="insert unique ID (e.g., SN72K45M83)"
+          />
+          <button onClick={handleCreateWallet} disabled={loading} className="action-submit-btn" title="Create Wallet">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * AP Actions Content (extracted for reuse)
+ */
+function APActionsContent() {
+  const { showSuccess, showError } = useToastContext();
+  const [etfQuantity, setEtfQuantity] = useState('100');
+  const [etfSymbol, setEtfSymbol] = useState('ES3');
+  const [loading, setLoading] = useState(false);
+
+  // Create ETF (offchain operation)
+  // This function creates ETF shares by deducting underlying stocks according to ETF composition
+  // and adding the ETF shares to AP's account in the CDP registry
+  const handleCreateETF = async () => {
+    setLoading(true);
+
+    try {
+      const quantity = parseInt(etfQuantity, 10);
+      
+      // Validate quantity is a positive number
+      if (isNaN(quantity) || quantity <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Call the createETF function which handles:
+      // - Reading current CDP registry
+      // - Validating sufficient holdings
+      // - Deducting constituent stocks
+      // - Adding ETF shares
+      // - Storing updated registry in localStorage
+      const result = await createETF('AP', quantity, etfSymbol);
+      
+      showSuccess(`Successfully created ${quantity} ${etfSymbol} shares. New balance: ${result.newETFBalance}`);
+      
+      // Trigger a window event to notify CDPRegistry component to refresh
+      window.dispatchEvent(new Event('cdp-registry-updated'));
+    } catch (err) {
+      console.error('Create ETF error:', err);
+      showError(err.message || 'Failed to create ETF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="action-group">
+        <div className="action-name">Create ETF</div>
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="number"
+              value={etfQuantity}
+              onChange={(e) => setEtfQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+            <input
+              type="text"
+              value={etfSymbol}
+              onChange={(e) => setEtfSymbol(e.target.value)}
+              placeholder="insert symbol"
+            />
+          </div>
+          <button onClick={handleCreateETF} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Create ETF">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
  * AP Actions Panel
  * Actions: Create ETF
  */
@@ -387,34 +912,35 @@ export function APActions() {
   };
 
   // Create ETF (offchain operation)
+  // This function creates ETF shares by deducting underlying stocks according to ETF composition
+  // and adding the ETF shares to AP's account in the CDP registry
   const handleCreateETF = async () => {
     clearMessages();
     setLoading(true);
 
     try {
-      // This is an offchain operation that updates CDP registry JSON
-      // Call backend script endpoint or API
-      const response = await fetch('/api/create-etf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ownerId: 'AP',
-          quantity: parseInt(etfQuantity), 
-          symbol: etfSymbol 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create ETF - backend script may not be running');
+      const quantity = parseInt(etfQuantity, 10);
+      
+      // Validate quantity is a positive number
+      if (isNaN(quantity) || quantity <= 0) {
+        throw new Error('Quantity must be a positive number');
       }
 
-      const result = await response.json();
-      setSuccess(`ETF creation successful: ${etfQuantity} ${etfSymbol} shares created`);
+      // Call the createETF function which handles:
+      // - Reading current CDP registry
+      // - Validating sufficient holdings
+      // - Deducting constituent stocks
+      // - Adding ETF shares
+      // - Storing updated registry in localStorage
+      const result = await createETF('AP', quantity, etfSymbol);
+      
+      setSuccess(`Successfully created ${quantity} ${etfSymbol} shares. New balance: ${result.newETFBalance}`);
+      
+      // Trigger a window event to notify CDPRegistry component to refresh
+      window.dispatchEvent(new Event('cdp-registry-updated'));
     } catch (err) {
       console.error('Create ETF error:', err);
-      // For demo purposes, show success even if API fails (CDP registry updates happen via backend scripts)
-      setSuccess(`ETF creation initiated: ${etfQuantity} ${etfSymbol} shares (Note: Run backend script to update CDP registry)`);
-      // setError(err.message || 'Failed to create ETF');
+      setError(err.message || 'Failed to create ETF');
     } finally {
       setLoading(false);
     }

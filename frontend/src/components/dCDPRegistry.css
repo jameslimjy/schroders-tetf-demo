@@ -3,7 +3,7 @@
  */
 
 .dcdp-registry {
-  border: 1px solid #9c27b0;
+  /* Removed border color as requested */
   border-radius: 8px;
   padding: 16px;
   background: white;
@@ -12,13 +12,29 @@
   flex-direction: column;
 }
 
-.dcdp-registry h3 {
-  margin: 0 0 12px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #9c27b0;
-  border-bottom: 2px solid #9c27b0;
+/* Registry header with logo */
+.dcdp-registry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
   padding-bottom: 8px;
+  border-bottom: 3px solid #0f2859;
+}
+
+.dcdp-registry-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.dcdp-registry h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f2859;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
 }
 
 .dcdp-registry-content {

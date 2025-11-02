@@ -5,71 +5,297 @@
 .action-panel {
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 16px;
+  padding: 11px; /* Reduced to 2/3 of 16px (approximately 11px) */
   background: white;
-  margin-bottom: 16px;
+  flex: 1; /* Allow panels to grow equally to fill available space */
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Allow flex shrinking */
+}
+
+/* Combined actions panel - single panel containing all sections */
+.action-panel.combined-actions {
+  overflow: hidden; /* No scrollbar - content should fit */
+}
+
+/* Panel header */
+.action-panel-header {
+  margin-bottom: 11px; /* Reduced to 2/3 of 16px (approximately 11px) */
+  /* Remove padding-bottom and border-bottom from here - h3 handles it now */
+}
+
+.action-panel-header h3 {
+  margin: 0;
+  font-size: 16px; /* Reduced to 2/3 of 18px (approximately 16px) */
+  font-weight: 700;
+  color: #0f2859;
+  border-bottom: 2px solid #0f2859; /* Reduced to 2/3 of 3px */
+  padding-bottom: 7px; /* Reduced to 2/3 of 8px (approximately 7px) */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
+}
+
+/* Individual section within combined panel */
+.action-section {
+  display: flex;
+  flex-direction: column;
+  padding: 9px; /* Reduced to 2/3 of 14px (approximately 9px) */
+  border-radius: 7px; /* Reduced to 2/3 of 8px (approximately 7px) */
+  margin-bottom: 8px; /* Reduced to 2/3 of 12px */
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.action-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Thomas section - dark teal background */
+.action-section-thomas {
+  background-color: #00796d;
+  border-color: #005a52;
+}
+
+.action-section-thomas h4 {
+  color: #ffffff !important; /* Ensure white color for Thomas header */
+  font-size: 16px; /* Reduced to 2/3 of original (approximately 16px) */
+  margin-bottom: 6px; /* Reduced to 2/3 spacing */
+}
+
+.action-section-thomas .action-section-header {
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.action-section-thomas .action-name {
+  color: #ffffff;
+}
+
+/* dCDP section - orange/yellow background */
+.action-section-dcdp {
+  background-color: #f8a908;
+  border-color: #d89100;
+}
+
+.action-section-dcdp h4 {
+  color: #ffffff !important; /* Ensure white color for dCDP header */
+  font-size: 16px; /* Reduced to 2/3 of original (approximately 16px) */
+  margin-bottom: 6px; /* Reduced to 2/3 spacing */
+}
+
+.action-section-dcdp .action-section-header {
+  border-bottom-color: rgba(255, 255, 255, 0.3); /* Changed to white border for visibility */
+}
+
+.action-section-dcdp .action-name {
+  color: #ffffff; /* Changed to white to match Thomas section */
+}
+
+/* AP section - cyan/turquoise background */
+.action-section-ap {
+  background-color: #57c7cd;
+  border-color: #45a8ad;
+}
+
+.action-section-ap h4 {
+  color: #ffffff !important; /* Ensure white color for AP header */
+  font-size: 16px; /* Reduced to 2/3 of original (approximately 16px) */
+  margin-bottom: 6px; /* Reduced to 2/3 spacing */
+}
+
+.action-section-ap .action-section-header {
+  border-bottom-color: rgba(255, 255, 255, 0.3); /* Changed to white border for visibility */
+}
+
+.action-section-ap .action-name {
+  color: #ffffff; /* Changed to white to match Thomas section */
+}
+
+/* Section header with logo */
+.action-section-header {
+  display: flex;
+  align-items: center;
+  gap: 7px; /* Reduced to 2/3 of 10px (approximately 7px) */
+  margin-bottom: 11px; /* Reduced to 2/3 of 16px (approximately 11px) */
+  padding-bottom: 7px; /* Reduced to 2/3 of 10px (approximately 7px) */
+  border-bottom: 1px solid #eee;
+}
+
+.action-section-logo {
+  width: 21px; /* Reduced to 2/3 of 32px (approximately 21px) */
+  height: 21px; /* Reduced to 2/3 of 32px (approximately 21px) */
+  object-fit: contain;
 }
 
 .action-panel h4 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
+  margin: 0;
+  font-size: 16px; /* Reduced to 2/3 of 18px (approximately 16px) */
   font-weight: 600;
   color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
 }
 
+/* Compact section headers in combined panel */
+.combined-actions .action-section h4 {
+  margin: 0;
+  font-size: 16px; /* Reduced to 2/3 of 18px (approximately 16px) */
+}
+
+
 .action-group {
-  margin-bottom: 16px;
+  margin-bottom: 8px; /* Reduced to 2/3 of 12px */
 }
 
 .action-group:last-child {
   margin-bottom: 0;
 }
 
-.action-group label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #666;
+/* More compact spacing in combined panel */
+.combined-actions .action-group {
+  margin-bottom: 8px; /* Reduced to 2/3 of 12px */
+}
+
+/* Action name display */
+.action-name {
+  font-size: 13px; /* Reduced to 2/3 of 14px (approximately 13px) */
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 7px; /* Reduced to 2/3 of 8px (approximately 7px) */
+}
+
+/* Input row for single input with button */
+.action-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-input-row input {
+  flex: 1;
+}
+
+/* Multi-input layout with centered button */
+.action-multi-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-input-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
 }
 
 .action-group input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 9px; /* Reduced to 2/3 of 8px 12px (approximately 6px 9px) */
   border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-bottom: 8px;
+  border-radius: 3px; /* Reduced to 2/3 of 4px (approximately 3px) */
+  font-size: 13px; /* Reduced to 2/3 of 14px (approximately 13px) */
+  margin-bottom: 0;
   box-sizing: border-box;
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.action-group input::placeholder {
+  color: #999;
 }
 
 .action-group input:focus {
   outline: none;
   border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
-.action-group button {
-  width: 100%;
-  padding: 10px 16px;
-  background: #1976d2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
+/* Sleek submit button with micro-interaction - CodePen design */
+.action-submit-btn {
+  position: relative;
+  padding: 6px 15px; /* Reduced to 2/3 of 8px 20px (approximately 6px 15px) */
+  width: auto;
+  min-width: 42px; /* Reduced to 2/3 of 50px (approximately 42px) */
+  height: 32px; /* Reduced to 2/3 of 38px (approximately 32px) */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.3rem; /* Reduced to 2/3 of 1.5rem (approximately 1.3rem) */
   font-weight: 600;
+  border-radius: 13px; /* Reduced to 2/3 of 15px (approximately 13px) */
+  border: 2px solid #00c2cb;
+  background: none;
+  color: #00c2cb;
   cursor: pointer;
-  transition: background 0.2s;
+  outline: none;
+  transition: 200ms;
+  flex-shrink: 0;
+  font-family: "Poppins", sans-serif;
 }
 
-.action-group button:hover:not(:disabled) {
-  background: #1565c0;
+/* Checkmark icon - initially transparent */
+.action-submit-btn i {
+  position: absolute;
+  color: transparent;
+  transition: 200ms;
+  font-style: normal;
+  font-size: 1.3rem; /* Reduced to 2/3 of 1.5rem (approximately 1.3rem) */
 }
 
-.action-group button:disabled {
-  background: #ccc;
+/* Focus/active state - transforms to circular spinner */
+.action-submit-btn:focus,
+.action-submit-btn:active:not(:disabled),
+.action-submit-btn.processing {
+  color: transparent;
+  outline: none;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  width: 42px; /* Reduced to 2/3 of 50px (approximately 42px) */
+  height: 42px; /* Reduced to 2/3 of 50px (approximately 42px) */
+  padding: 20px 20px; /* Reduced to 2/3 of 25px 25px (approximately 20px) */
+  border-left: 2px solid #00c2cb;
+  animation: spin 2s 500ms forwards;
+}
+
+/* Checkmark appears after spin animation */
+.action-submit-btn:focus i,
+.action-submit-btn:active:not(:disabled) i,
+.action-submit-btn.processing i {
+  animation: check 300ms 2250ms forwards;
+}
+
+/* Spin animation */
+@keyframes spin {
+  80% {
+    border: 2px solid transparent;
+    border-left: 2px solid #00c2cb;
+  }
+  100% {
+    transform: rotate(720deg);
+    border: 2px solid #00c2cb;
+  }
+}
+
+/* Checkmark fade-in animation */
+@keyframes check {
+  to {
+    color: #00c2cb;
+  }
+}
+
+/* Disabled state */
+.action-submit-btn:disabled {
+  background: none;
+  border-color: #ccc;
+  color: #ccc;
   cursor: not-allowed;
+  transform: none;
+}
+
+.action-submit-btn:disabled i {
+  display: none;
+}
+
+/* Centered button for multi-input actions */
+.action-submit-btn-centered {
+  align-self: center;
 }
 
 .action-error {
@@ -81,6 +307,18 @@
   font-size: 13px;
 }
 
+/* Error messages in colored sections */
+.action-section-thomas .action-error {
+  background: rgba(255, 235, 238, 0.9);
+  color: #ffcdd2;
+}
+
+.action-section-dcdp .action-error,
+.action-section-ap .action-error {
+  background: rgba(255, 235, 238, 0.95);
+  color: #b71c1c;
+}
+
 .action-success {
   margin-top: 12px;
   padding: 8px 12px;
@@ -88,5 +326,17 @@
   color: #2e7d32;
   border-radius: 4px;
   font-size: 13px;
+}
+
+/* Success messages in colored sections */
+.action-section-thomas .action-success {
+  background: rgba(232, 245, 233, 0.9);
+  color: #c8e6c9;
+}
+
+.action-section-dcdp .action-success,
+.action-section-ap .action-success {
+  background: rgba(232, 245, 233, 0.95);
+  color: #1b5e20;
 }
 

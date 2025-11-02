@@ -15,16 +15,42 @@
 .block-explorer h3 {
   margin: 0 0 12px 0;
   font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  border-bottom: 2px solid #000;
+  font-weight: 700;
+  color: #0f2859;
+  border-bottom: 3px solid #0f2859;
   padding-bottom: 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
 }
 
 .block-explorer-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: auto;
+  min-height: 0; /* Important for flex scrolling */
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* Custom scrollbar styling to match CDP Registry */
+/* Webkit browsers (Chrome, Safari, Edge) */
+.block-explorer-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.block-explorer-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.block-explorer-content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.block-explorer-content::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .block-explorer-table {
@@ -75,7 +101,7 @@
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
+  /* No text-transform - show function names in camelCase */
 }
 
 .function-transfer {

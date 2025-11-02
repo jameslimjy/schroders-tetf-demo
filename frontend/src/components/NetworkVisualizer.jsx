@@ -15,15 +15,22 @@ import './NetworkVisualizer.css';
 const LOGO_BASE_PATH = '/assets/logos/';
 
 // Node positions (relative coordinates, will be scaled to container)
+// Arranged to match the image layout with 90-degree connections
+// Increased spacing to prevent overlap on smaller screens
 const NODE_POSITIONS = {
-  traditionalExchanges: { x: 10, y: 10 },
-  settlement: { x: 25, y: 50 },
-  cdp: { x: 40, y: 50 },
-  dcdp: { x: 60, y: 50 },
-  digitalExchange: { x: 75, y: 50 },
-  stablecoinProvider: { x: 90, y: 50 },
-  thomas: { x: 60, y: 20 },
-  ap: { x: 80, y: 80 },
+  // Left column (vertical stack) - increased vertical spacing
+  traditionalExchanges: { x: 15, y: 12 },  // Top-left
+  settlement: { x: 15, y: 45 },            // Middle-left (ST) - increased gap
+  cdp: { x: 15, y: 78 },                   // Bottom-left - increased gap
+  
+  // Right column - increased spacing
+  thomas: { x: 65, y: 12 },                // Top-right (above Digital Exchange)
+  digitalExchange: { x: 65, y: 45 },       // Middle-right-left - increased gap
+  stablecoinProvider: { x: 85, y: 45 },    // Middle-right-right - increased horizontal spacing
+  dcdp: { x: 65, y: 78 },                  // Bottom-right (aligned with CDP) - increased gap
+  
+  // AP (connected to CDP with 90-degree angle) - adjusted to prevent overlap
+  ap: { x: 40, y: 65 },                    // Right of CDP, then up - more spacing
 };
 
 // Node configuration with logos and styling
@@ -32,80 +39,131 @@ const NODE_CONFIG = {
     label: 'Traditional Exchanges',
     logo: `${LOGO_BASE_PATH}traditional-exchange-logo.png`,
     type: 'institution', // light grey background
-    width: 140,
-    height: 80,
+    width: 150, // Reduced width for less horizontal padding
+    height: 90, // Increased height for bottom padding
   },
   settlement: {
     label: 'ST',
     logo: `${LOGO_BASE_PATH}settlement-logo.png`,
     type: 'wallet', // dark blue background
-    width: 100,
-    height: 70,
+    width: 150, // Match Traditional Exchanges width
+    height: 90, // Match Traditional Exchanges height
   },
   cdp: {
     label: 'CDP',
     logo: `${LOGO_BASE_PATH}cdp-logo.png`,
     type: 'institution',
-    width: 100,
-    height: 70,
+    width: 150, // Match Traditional Exchanges width
+    height: 90, // Match Traditional Exchanges height
   },
   dcdp: {
     label: 'dCDP',
     logo: `${LOGO_BASE_PATH}dcdp-logo.png`,
     type: 'wallet',
-    width: 100,
-    height: 70,
+    width: 150, // Match Traditional Exchanges width
+    height: 90, // Match Traditional Exchanges height
   },
   digitalExchange: {
     label: 'Digital Exchange',
     logo: `${LOGO_BASE_PATH}digital-exchange-logo.png`,
     type: 'wallet',
-    width: 140,
-    height: 80,
+    width: 150, // Reduced width for less horizontal padding
+    height: 90, // Increased height for bottom padding
   },
   stablecoinProvider: {
     label: 'Stablecoin Provider',
     logo: `${LOGO_BASE_PATH}stablecoin-logo.png`,
     type: 'institution',
-    width: 140,
-    height: 80,
+    width: 150, // Reduced width for less horizontal padding
+    height: 90, // Increased height for bottom padding
   },
   thomas: {
     label: 'Thomas',
     logo: `${LOGO_BASE_PATH}thomas-logo.png`,
     type: 'wallet',
-    width: 120,
-    height: 75,
+    width: 120, // Reduced width for less horizontal padding
+    height: 90, // Increased height for bottom padding
   },
   ap: {
     label: 'AP',
     logo: `${LOGO_BASE_PATH}ap-logo.png`,
     type: 'wallet',
-    width: 100,
-    height: 70,
+    width: 100, // Reduced width for less horizontal padding
+    height: 85, // Increased height for bottom padding
   },
 };
 
-function NetworkVisualizer() {
+function NetworkVisualizer({ animationTrigger }) {
   const { blockNumber, isConnected } = useBlockchain();
   const [activeNodes, setActiveNodes] = useState(new Set());
   const [particles, setParticles] = useState([]);
   const svgRef = useRef(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [dimensions, setDimensions] = useState({ width: 1000, height: 700 }); // Increased default size for better spacing
+  const lastTriggerRef = useRef(null); // Track last animation trigger to avoid duplicates
 
-  // Update dimensions on resize
+  // Update dimensions on resize with throttling to prevent excessive re-renders
+  // Throttle resize events to max once per 100ms for better performance
   useEffect(() => {
+    let timeoutId = null;
+    
     const updateDimensions = () => {
       if (svgRef.current) {
         const rect = svgRef.current.getBoundingClientRect();
-        setDimensions({ width: rect.width, height: rect.height });
+        // Only update if dimensions actually changed significantly (avoid micro-adjustments)
+        setDimensions((prev) => {
+          const widthDiff = Math.abs(prev.width - rect.width);
+          const heightDiff = Math.abs(prev.height - rect.height);
+          // Only update if change is more than 5 pixels to reduce unnecessary re-renders
+          if (widthDiff > 5 || heightDiff > 5) {
+            return { width: rect.width, height: rect.height };
+          }
+          return prev;
+        });
       }
     };
 
+    // Throttled resize handler - only runs once per 100ms max
+    const throttledResize = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(updateDimensions, 100);
+    };
+
+    // Initial measurement
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    
+    // Add throttled resize listener
+    window.addEventListener('resize', throttledResize);
+    
+    return () => {
+      window.removeEventListener('resize', throttledResize);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, []);
+
+  // Fix SVG className issue for browser dev tools compatibility
+  // SVG elements expose className as SVGAnimatedString, which breaks tools expecting strings
+  // Only run this once on mount, not on every dimension change (performance optimization)
+  useEffect(() => {
+    const fixSVGClassNames = () => {
+      if (svgRef.current) {
+        const svgElements = svgRef.current.querySelectorAll('.network-node');
+        svgElements.forEach((el) => {
+          if (el && el.className && typeof el.className !== 'string') {
+            const classNameValue = el.className.baseVal || el.className.animVal || 'network-node';
+            el.setAttribute('class', classNameValue);
+          }
+        });
+      }
+    };
+    
+    // Fix after elements are rendered (only once on mount)
+    const timeoutId = setTimeout(fixSVGClassNames, 500);
+    return () => clearTimeout(timeoutId);
+  }, []); // Run only once on mount, not on every dimension change
 
   // Convert percentage coordinates to pixel coordinates
   const toPixels = (percentX, percentY) => {
@@ -127,25 +185,247 @@ function NetworkVisualizer() {
     }, duration);
   };
 
-  // Create particle animation between two nodes
-  const createParticle = (fromNode, toNode, color = '#1976d2', type = 'default') => {
-    const from = toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y);
-    const to = toPixels(NODE_POSITIONS[toNode].x, NODE_POSITIONS[toNode].y);
+  // Create particle animation between two nodes with neon effects
+  // Uses connection points (edges) for more natural flow visualization
+  // Creates multiple particles for a trail effect with neon glow
+  // Supports color interpolation from startColor to endColor
+  const createParticle = (fromNode, toNode, startColor = '#1976d2', endColor = null, type = 'default') => {
+    // Use endColor if provided, otherwise use startColor (no color change)
+    const finalEndColor = endColor || startColor;
+    
+    // Use connection points for natural flow visualization
+    // Fallback to centers if connection points aren't available yet
+    let from, to;
+    try {
+      const points = getConnectionPoint(fromNode, toNode);
+      from = points.from;
+      to = points.to;
+    } catch (e) {
+      // Fallback to center positions if getConnectionPoint not available
+      from = toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y);
+      to = toPixels(NODE_POSITIONS[toNode].x, NODE_POSITIONS[toNode].y);
+    }
 
-    const particle = {
-      id: Date.now() + Math.random(),
+    // Create multiple particles for a neon trail effect
+    // Main particle (larger, brighter) - reduced to size 1
+    const mainParticle = {
+      id: `main-${Date.now()}-${Math.random()}`,
       from,
       to,
-      color,
+      startColor, // Starting color
+      endColor: finalEndColor, // Ending color for interpolation
       type,
+      size: 1, // Reduced to size 1
+      glow: true, // Apply neon glow filter
+      delay: 0,
     };
 
-    setParticles((prev) => [...prev, particle]);
+    // Trail particles (smaller, trailing behind) - proportionally smaller than main
+    const trailParticles = [];
+    for (let i = 0; i < 5; i++) {
+      trailParticles.push({
+        id: `trail-${Date.now()}-${Math.random()}-${i}`,
+        from,
+        to,
+        startColor, // Starting color
+        endColor: finalEndColor, // Ending color for interpolation
+        type,
+        size: 0.7 - i * 0.1, // Decreasing size: 0.7, 0.6, 0.5, 0.4, 0.3
+        glow: i < 2, // Only first two trail particles have glow
+        delay: i * 50, // Reduced delay for 2x speed (was i * 100)
+        opacity: 0.8 - i * 0.15, // Decreasing opacity
+      });
+    }
 
-    // Remove particle after animation completes
+    // Add all particles
+    setParticles((prev) => [...prev, mainParticle, ...trailParticles]);
+
+    // Remove particles after animation completes - reduced timeout for 2x speed
     setTimeout(() => {
-      setParticles((prev) => prev.filter((p) => p.id !== particle.id));
+      setParticles((prev) => prev.filter((p) => 
+        p.id !== mainParticle.id && !trailParticles.some(tp => tp.id === p.id)
+      ));
+    }, 1250); // Reduced from 2500 to 1250 for 2x speed
+  };
+
+  // Animation sequence for onramp cash flow with enhanced neon effects
+  // Shows cash flow: Thomas → Digital Exchange → Stablecoin Provider
+  // Then stablecoin flow: Stablecoin Provider → Digital Exchange → Thomas
+  // All timing reduced by 50% for 2x speed
+  const playOnrampAnimation = () => {
+    // Step 1: Make Thomas glow with neon effect
+    setActiveNodes((prev) => new Set(prev).add('thomas'));
+
+    // Step 2: Cash flow animation with color gradient
+    // Create multiple particle bursts for more flashy effect
+    // Thomas to Digital Exchange - green to orange gradient
+    setTimeout(() => {
+      createParticle('thomas', 'digitalExchange', '#00ff00', '#ff6b35', 'cash'); // Green to orange
+      // Additional burst particles for more flash - reduced delays for 2x speed
+      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00ff00', '#ffaa00', 'cash'), 25); // Was 50
+      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00ff00', '#ff9500', 'cash'), 50); // Was 100
+    }, 150); // Reduced from 300 to 150 for 2x speed
+
+    // Digital Exchange to Stablecoin Provider (cash flow continues) - orange maintained
+    setTimeout(() => {
+      createParticle('digitalExchange', 'stablecoinProvider', '#ff6b35', '#ff6b35', 'cash'); // Orange to orange
+      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#ffaa00', '#ffaa00', 'cash'), 25); // Was 50
+      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#ff9500', '#ff9500', 'cash'), 50); // Was 100
+    }, 500); // Reduced from 1000 to 500 for 2x speed
+
+    // Step 3: Make Digital Exchange glow with neon effect when cash arrives
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('digitalExchange');
+        return next;
+      });
+    }, 750); // Reduced from 1500 to 750 for 2x speed
+
+    // Step 4: Make Stablecoin Provider glow with neon effect when cash arrives
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('stablecoinProvider');
+        return next;
+      });
+    }, 1000); // Reduced from 2000 to 1000 for 2x speed
+
+    // Step 5: Stablecoin flow (reverse direction) with orange to green gradient
+    // Stablecoin Provider to Digital Exchange - orange to green
+    setTimeout(() => {
+      createParticle('stablecoinProvider', 'digitalExchange', '#ff6b35', '#00ff00', 'stablecoin'); // Orange to green
+      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#ffaa00', '#00ff00', 'stablecoin'), 25); // Was 50
+      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#ff9500', '#00ff00', 'stablecoin'), 50); // Was 100
+    }, 1500); // Reduced from 3000 to 1500 for 2x speed
+
+    // Digital Exchange to Thomas (stablecoin flow continues) - green maintained
+    setTimeout(() => {
+      createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'); // Green to green
+      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'), 25); // Was 50
+      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'), 50); // Was 100
+    }, 1850); // Reduced from 3700 to 1850 for 2x speed
+
+    // Step 6: Remove glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('thomas');
+        next.delete('digitalExchange');
+        next.delete('stablecoinProvider');
+        return next;
+      });
+    }, 3250); // Reduced from 6500 to 3250 for 2x speed
+  };
+
+  // Animation sequence for ETF creation - glow CDP and AP nodes simultaneously
+  // Shows visual feedback when ETF shares are created
+  const playETFAnimation = () => {
+    // Step 1: Make CDP and AP glow with neon effect at the same time
+    setActiveNodes((prev) => {
+      const next = new Set(prev);
+      next.add('cdp');
+      next.add('ap');
+      return next;
+    });
+
+    // Step 2: Remove glows after animation completes (2 seconds total)
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('cdp');
+        next.delete('ap');
+        return next;
+      });
     }, 2000);
+  };
+
+  // Watch for animation trigger changes
+  useEffect(() => {
+    if (animationTrigger && animationTrigger.type === 'onramp') {
+      // Check if this is a new trigger (avoid duplicate animations)
+      if (lastTriggerRef.current !== animationTrigger.timestamp) {
+        lastTriggerRef.current = animationTrigger.timestamp;
+        playOnrampAnimation();
+      }
+    }
+  }, [animationTrigger]);
+
+  // Listen for ETF creation events to trigger CDP and AP glow animation
+  useEffect(() => {
+    const handleETFCreation = () => {
+      playETFAnimation();
+    };
+    
+    window.addEventListener('cdp-registry-updated', handleETFCreation);
+    
+    return () => {
+      window.removeEventListener('cdp-registry-updated', handleETFCreation);
+    };
+  }, []);
+
+  // Helper function to get rectangle bounds for connection points
+  const getNodeBounds = (nodeId, position) => {
+    const config = NODE_CONFIG[nodeId];
+    if (!config) return null;
+    const pos = toPixels(position.x, position.y);
+    const width = config.width;
+    const height = config.height;
+    return {
+      left: pos.x - width / 2,
+      right: pos.x + width / 2,
+      top: pos.y - height / 2,
+      bottom: pos.y + height / 2,
+      centerX: pos.x,
+      centerY: pos.y,
+    };
+  };
+
+  // Helper function to get connection point between two nodes
+  // Returns the edge point where a particle should start/end for natural flow
+  const getConnectionPoint = (fromNode, toNode) => {
+    const fromBounds = getNodeBounds(fromNode, NODE_POSITIONS[fromNode]);
+    const toBounds = getNodeBounds(toNode, NODE_POSITIONS[toNode]);
+    
+    if (!fromBounds || !toBounds) {
+      // Fallback to center if bounds not available
+      return {
+        from: toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y),
+        to: toPixels(NODE_POSITIONS[toNode].x, NODE_POSITIONS[toNode].y),
+      };
+    }
+
+    // Determine which edge to use based on relative positions
+    let fromPoint = { x: fromBounds.centerX, y: fromBounds.centerY };
+    let toPoint = { x: toBounds.centerX, y: toBounds.centerY };
+
+    // Calculate direction vector
+    const dx = toBounds.centerX - fromBounds.centerX;
+    const dy = toBounds.centerY - fromBounds.centerY;
+
+    // Determine exit point from source node (edge closest to destination)
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Horizontal connection
+      fromPoint.x = dx > 0 ? fromBounds.right : fromBounds.left;
+      fromPoint.y = fromBounds.centerY;
+    } else {
+      // Vertical connection
+      fromPoint.x = fromBounds.centerX;
+      fromPoint.y = dy > 0 ? fromBounds.bottom : fromBounds.top;
+    }
+
+    // Determine entry point to destination node (edge closest to source)
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Horizontal connection
+      toPoint.x = dx > 0 ? toBounds.left : toBounds.right;
+      toPoint.y = toBounds.centerY;
+    } else {
+      // Vertical connection
+      toPoint.x = toBounds.centerX;
+      toPoint.y = dy > 0 ? toBounds.top : toBounds.bottom;
+    }
+
+    return { from: fromPoint, to: toPoint };
   };
 
   // Render a network node as a rectangle with logo and name
@@ -163,14 +443,53 @@ function NetworkVisualizer() {
     const x = pos.x - width / 2;
     const y = pos.y - height / 2;
 
-    // Colors based on type
-    const fillColor = isWallet ? '#1565c0' : '#e0e0e0'; // Dark blue for wallets, light grey for institutions
-    const textColor = isWallet ? '#ffffff' : '#333333'; // White text for wallets, dark text for institutions
-    const strokeColor = isActive ? '#ff9800' : (isWallet ? '#1976d2' : '#999999');
+    // Colors - specific colors for certain stakeholders, default for others
+    const stakeholderColors = {
+      ap: '#57c7cd',
+      thomas: '#00796d',
+      dcdp: '#f8a908',
+      traditionalExchanges: '#0f2859', // Match main background
+      settlement: '#0f2859', // Match main background
+      cdp: '#0f2859', // Match main background
+      digitalExchange: '#0f2859', // Match main background
+      stablecoinProvider: '#0f2859', // Match main background
+    };
+    const fillColor = stakeholderColors[nodeId] || '#2596be'; // Default color or stakeholder-specific
+    const textColor = '#ffffff'; // White text for all blocks
+    // Neon glow colors for active nodes - all use light neon blue
+    const neonStrokeColor = isActive 
+      ? '#00d4ff' // Light neon blue for all active nodes
+      : '#0f2859'; // Default outline
 
     return (
       <g key={nodeId}>
-        {/* Rectangle node */}
+        {/* Glow layer behind rectangle border (only when active) - creates neon border glow effect */}
+        {/* Border glow intensity reduced to half, stroke width reduced */}
+        {isActive && (
+          <motion.rect
+            x={x - 1.5}
+            y={y - 1.5}
+            width={width + 3}
+            height={height + 3}
+            rx={9}
+            ry={9}
+            fill="none"
+            stroke={neonStrokeColor}
+            strokeWidth={6} // Reduced from 8 to 6 (thinner)
+            opacity={0.3} // Reduced from 0.6 to 0.3 (half intensity)
+            filter="url(#neonGlowStrong)"
+            animate={{
+              opacity: [0.2, 0.4, 0.2], // Reduced from [0.4, 0.8, 0.4] to half
+            }}
+            transition={{
+              duration: 0.75, // Reduced from 1.5 to 0.75 for 2x speed
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+        )}
+        
+        {/* Rectangle node - no fill glow, only border will glow */}
         <motion.rect
           x={x}
           y={y}
@@ -179,9 +498,11 @@ function NetworkVisualizer() {
           rx={8}
           ry={8}
           fill={fillColor}
-          stroke={strokeColor}
-          strokeWidth={isActive ? 3 : 2}
+          stroke={neonStrokeColor}
+          strokeWidth={isActive ? 3 : 1} // Reduced from 4 to 3 when active (thinner)
           className="network-node"
+          data-node-id={nodeId}
+          // Removed filter from main rectangle - only border should glow
           animate={{
             scale: isActive ? 1.05 : 1,
             opacity: isActive ? 1 : 0.95,
@@ -189,49 +510,173 @@ function NetworkVisualizer() {
           transition={{ duration: 0.3 }}
         />
         
-        {/* Logo image (top-left corner) */}
+        {/* Border glow layer - separate element for border-only glow when active */}
+        {/* Border glow intensity reduced to half, stroke width reduced */}
+        {isActive && (
+          <motion.rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            rx={8}
+            ry={8}
+            fill="none"
+            stroke={neonStrokeColor}
+            strokeWidth={3} // Reduced from 4 to 3 (thinner)
+            filter="url(#neonGlowStrong)"
+            opacity={0.45} // Reduced from 0.9 to 0.45 (half intensity)
+            animate={{
+              opacity: [0.35, 0.5, 0.35], // Reduced from [0.7, 1, 0.7] to half
+            }}
+            transition={{
+              duration: 0.75,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+        )}
+        
+        {/* Logo image (centered horizontally, top portion) - bigger size */}
         <image
-          x={x + 8}
-          y={y + 8}
-          width="24"
-          height="24"
+          x={pos.x - 18}
+          y={y + 12}
+          width="36"
+          height="36"
           href={config.logo}
           className="network-logo"
-          opacity={isWallet ? 0.9 : 1}
+          opacity={0.9}
           onError={(e) => {
             // Hide logo if image fails to load
             e.target.style.display = 'none';
           }}
         />
         
-        {/* Stakeholder name (centered in rectangle) */}
+        {/* Stakeholder name (centered in rectangle, below logo) - bigger font */}
+        {/* Adjusted y position to add bottom padding - text positioned higher in box */}
+        {/* Multi-line labels (Traditional Exchanges, Digital Exchange, Stablecoin Provider) have more bottom spacing */}
         <text
           x={pos.x}
-          y={pos.y + 6}
+          y={nodeId === 'traditionalExchanges' || nodeId === 'digitalExchange' || nodeId === 'stablecoinProvider' 
+            ? pos.y + 15  // Higher position for two-line labels = more bottom spacing
+            : pos.y + 20}  // Standard position for single-line labels
           textAnchor="middle"
-          fontSize="13"
+          fontSize="16"
           fontWeight="600"
           fill={textColor}
           className="network-label"
         >
-          {config.label}
+          {nodeId === 'traditionalExchanges' && (
+            <>
+              <tspan x={pos.x} dy="0">Traditional</tspan>
+              <tspan x={pos.x} dy="18">Exchanges</tspan>
+            </>
+          )}
+          {nodeId === 'digitalExchange' && (
+            <>
+              <tspan x={pos.x} dy="0">Digital</tspan>
+              <tspan x={pos.x} dy="18">Exchange</tspan>
+            </>
+          )}
+          {nodeId === 'stablecoinProvider' && (
+            <>
+              <tspan x={pos.x} dy="0">Stablecoin</tspan>
+              <tspan x={pos.x} dy="18">Provider</tspan>
+            </>
+          )}
+          {!['traditionalExchanges', 'digitalExchange', 'stablecoinProvider'].includes(nodeId) && config.label}
         </text>
       </g>
     );
   };
 
-  // Render particles (animated dots flowing between nodes)
+  // Render particles with neon glow effects and color interpolation
+  // Animation durations reduced to 1 second (from 2) for 2x speed
+  // Particle sizes reduced - main particle is 1, trails are smaller
+  // Colors interpolate from startColor to endColor during animation
   const renderParticles = () => {
     return particles.map((particle) => {
+      const size = particle.size || 1; // Default size set to 1 (matching main particle)
+      const opacity = particle.opacity !== undefined ? particle.opacity : 1;
+      const delay = particle.delay || 0;
+      // Use startColor and endColor for interpolation, fallback to single color
+      const startColor = particle.startColor || particle.color || '#1976d2';
+      const endColor = particle.endColor || particle.color || '#1976d2';
+      
       return (
-        <motion.circle
-          key={particle.id}
-          r={4}
-          fill={particle.color}
-          initial={{ cx: particle.from.x, cy: particle.from.y, opacity: 1 }}
-          animate={{ cx: particle.to.x, cy: particle.to.y, opacity: 0 }}
-          transition={{ duration: 2, ease: 'easeInOut' }}
-        />
+        <g key={particle.id}>
+          {/* Outer glow layer for neon effect */}
+          {particle.glow && (
+            <motion.circle
+              r={size + 4}
+              fill={startColor}
+              initial={{ 
+                cx: particle.from.x, 
+                cy: particle.from.y, 
+                opacity: 0.3 
+              }}
+              animate={{ 
+                cx: particle.to.x, 
+                cy: particle.to.y, 
+                fill: endColor, // Interpolate color from startColor to endColor
+                opacity: [0.3, 0.6, 0],
+                scale: [1, 1.2, 1.5],
+              }}
+              transition={{ 
+                duration: 1, // Reduced from 2 to 1 for 2x speed
+                delay: delay / 1000,
+                ease: [0.4, 0, 0.6, 1] // Cubic bezier for acceleration - starts slow, accelerates significantly mid-journey
+              }}
+              filter="url(#neonGlow)"
+            />
+          )}
+          
+          {/* Main particle */}
+          <motion.circle
+            r={size}
+            fill={startColor}
+            initial={{ 
+              cx: particle.from.x, 
+              cy: particle.from.y, 
+              opacity: opacity 
+            }}
+            animate={{ 
+              cx: particle.to.x, 
+              cy: particle.to.y, 
+              fill: endColor, // Interpolate color from startColor to endColor
+              opacity: [opacity, opacity * 0.8, 0],
+              scale: [1, 1.1, 0.8],
+            }}
+            transition={{ 
+              duration: 1, // Reduced from 2 to 1 for 2x speed
+              delay: delay / 1000,
+              ease: 'easeInOut' 
+            }}
+            filter={particle.glow ? 'url(#neonGlow)' : 'none'}
+          />
+          
+          {/* Inner bright core */}
+          {particle.glow && (
+            <motion.circle
+              r={size * 0.4}
+              fill="#ffffff"
+              initial={{ 
+                cx: particle.from.x, 
+                cy: particle.from.y, 
+                opacity: 0.9 
+              }}
+              animate={{ 
+                cx: particle.to.x, 
+                cy: particle.to.y, 
+                opacity: [0.9, 0.7, 0],
+              }}
+              transition={{ 
+                duration: 1, // Reduced from 2 to 1 for 2x speed
+                delay: delay / 1000,
+                ease: [0.4, 0, 0.6, 1] // Cubic bezier for acceleration - starts slow, accelerates significantly mid-journey
+              }}
+            />
+          )}
+        </g>
       );
     });
   };
@@ -245,77 +690,115 @@ function NetworkVisualizer() {
           width="100%"
           height="100%"
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+          preserveAspectRatio="xMidYMid meet"
           className="network-svg"
         >
-          {/* Background grid (optional) */}
+          {/* Background grid and neon filters */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" strokeWidth="1" />
             </pattern>
+            
+            {/* Neon glow filter for particles and nodes */}
+            <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            
+            {/* Stronger neon glow for active nodes */}
+            <filter id="neonGlowStrong" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="2"/>
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
 
-          {/* Connection lines */}
-          <line
-            x1={toPixels(NODE_POSITIONS.traditionalExchanges.x, NODE_POSITIONS.traditionalExchanges.y).x}
-            y1={toPixels(NODE_POSITIONS.traditionalExchanges.x, NODE_POSITIONS.traditionalExchanges.y).y}
-            x2={toPixels(NODE_POSITIONS.settlement.x, NODE_POSITIONS.settlement.y).x}
-            y2={toPixels(NODE_POSITIONS.settlement.x, NODE_POSITIONS.settlement.y).y}
-            stroke="#ccc"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.settlement.x, NODE_POSITIONS.settlement.y).x}
-            y1={toPixels(NODE_POSITIONS.settlement.x, NODE_POSITIONS.settlement.y).y}
-            x2={toPixels(NODE_POSITIONS.cdp.x, NODE_POSITIONS.cdp.y).x}
-            y2={toPixels(NODE_POSITIONS.cdp.x, NODE_POSITIONS.cdp.y).y}
-            stroke="#000"
-            strokeWidth="2"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.cdp.x, NODE_POSITIONS.cdp.y).x}
-            y1={toPixels(NODE_POSITIONS.cdp.x, NODE_POSITIONS.cdp.y).y}
-            x2={toPixels(NODE_POSITIONS.dcdp.x, NODE_POSITIONS.dcdp.y).x}
-            y2={toPixels(NODE_POSITIONS.dcdp.x, NODE_POSITIONS.dcdp.y).y}
-            stroke="#9c27b0"
-            strokeWidth="3"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.dcdp.x, NODE_POSITIONS.dcdp.y).x}
-            y1={toPixels(NODE_POSITIONS.dcdp.x, NODE_POSITIONS.dcdp.y).y}
-            x2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).x}
-            y2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).y}
-            stroke="#1976d2"
-            strokeWidth="2"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.stablecoinProvider.x, NODE_POSITIONS.stablecoinProvider.y).x}
-            y1={toPixels(NODE_POSITIONS.stablecoinProvider.x, NODE_POSITIONS.stablecoinProvider.y).y}
-            x2={toPixels(NODE_POSITIONS.thomas.x, NODE_POSITIONS.thomas.y).x}
-            y2={toPixels(NODE_POSITIONS.thomas.x, NODE_POSITIONS.thomas.y).y}
-            stroke="#42a5f5"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.thomas.x, NODE_POSITIONS.thomas.y).x}
-            y1={toPixels(NODE_POSITIONS.thomas.x, NODE_POSITIONS.thomas.y).y}
-            x2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).x}
-            y2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).y}
-            stroke="#42a5f5"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-          <line
-            x1={toPixels(NODE_POSITIONS.ap.x, NODE_POSITIONS.ap.y).x}
-            y1={toPixels(NODE_POSITIONS.ap.x, NODE_POSITIONS.ap.y).y}
-            x2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).x}
-            y2={toPixels(NODE_POSITIONS.digitalExchange.x, NODE_POSITIONS.digitalExchange.y).y}
-            stroke="#42a5f5"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
+          {/* Connection lines - all at 90-degree angles */}
+          {(() => {
+            const tradEx = getNodeBounds('traditionalExchanges', NODE_POSITIONS.traditionalExchanges);
+            const st = getNodeBounds('settlement', NODE_POSITIONS.settlement);
+            const cdp = getNodeBounds('cdp', NODE_POSITIONS.cdp);
+            const dcdp = getNodeBounds('dcdp', NODE_POSITIONS.dcdp);
+            const thomas = getNodeBounds('thomas', NODE_POSITIONS.thomas);
+            const digitalEx = getNodeBounds('digitalExchange', NODE_POSITIONS.digitalExchange);
+            const stablecoin = getNodeBounds('stablecoinProvider', NODE_POSITIONS.stablecoinProvider);
+            const ap = getNodeBounds('ap', NODE_POSITIONS.ap);
+
+            return (
+              <>
+                {/* Left column vertical connections */}
+                {/* Traditional Exchanges → ST (vertical down) */}
+                <line
+                  x1={tradEx.centerX}
+                  y1={tradEx.bottom}
+                  x2={st.centerX}
+                  y2={st.top}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* ST → CDP (vertical down) */}
+                <line
+                  x1={st.centerX}
+                  y1={st.bottom}
+                  x2={cdp.centerX}
+                  y2={cdp.top}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* CDP → dCDP (horizontal right) */}
+                <line
+                  x1={cdp.right}
+                  y1={cdp.centerY}
+                  x2={dcdp.left}
+                  y2={dcdp.centerY}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* Right column vertical connections */}
+                {/* Thomas → Digital Exchange (vertical down) */}
+                <line
+                  x1={thomas.centerX}
+                  y1={thomas.bottom}
+                  x2={digitalEx.centerX}
+                  y2={digitalEx.top}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* Digital Exchange → dCDP (vertical down) */}
+                <line
+                  x1={digitalEx.centerX}
+                  y1={digitalEx.bottom}
+                  x2={dcdp.centerX}
+                  y2={dcdp.top}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* Digital Exchange → Stablecoin Provider (horizontal right) */}
+                <line
+                  x1={digitalEx.right}
+                  y1={digitalEx.centerY}
+                  x2={stablecoin.left}
+                  y2={stablecoin.centerY}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+              </>
+            );
+          })()}
 
           {/* Render nodes */}
           {renderNode('traditionalExchanges', NODE_POSITIONS.traditionalExchanges)}

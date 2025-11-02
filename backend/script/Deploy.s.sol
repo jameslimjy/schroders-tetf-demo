@@ -31,6 +31,9 @@ contract DeployScript is Script {
     address public admin;
     address public stablecoinProvider;
 
+    // AP (Authorized Participant) address - Anvil Account #1
+    address public constant AP_ADDRESS = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
+
     function setUp() public {
         // Get deployer address (will be msg.sender when running script)
         admin = msg.sender;
@@ -67,6 +70,11 @@ contract DeployScript is Script {
         console.log("\n--- Linking TES3 to dCDP ---");
         tes3.setDCDP(address(dcdp));
         console.log("TES3 dCDP address updated to:", address(dcdp));
+
+        // Step 5: Create AP's wallet automatically
+        console.log("\n--- Creating AP's wallet ---");
+        dcdp.createWallet("AP", AP_ADDRESS);
+        console.log("AP wallet created: AP ->", AP_ADDRESS);
 
         vm.stopBroadcast();
 
