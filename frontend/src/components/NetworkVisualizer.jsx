@@ -474,6 +474,98 @@ function NetworkVisualizer({ animationTrigger }) {
     };
   }, []); // Empty dependencies - event listener setup only once
 
+  // Animation sequence for Buy Asset operation
+  // Shows the flow: Thomas → Digital Exchange → dCDP (forward), then dCDP → Digital Exchange → Thomas (reverse)
+  // Sequence:
+  // 1. Thomas glows first
+  // 2. Particles travel: Thomas → Digital Exchange → dCDP
+  // 3. After particles reach dCDP, reverse flow: dCDP → Digital Exchange → Thomas
+  const playBuyAssetAnimation = useCallback(() => {
+    // Step 1: Make Thomas glow (initiates buy)
+    setActiveNodes((prev) => new Set(prev).add('thomas'));
+
+    // Step 2: Forward flow - Thomas → Digital Exchange → dCDP
+    // Thomas to Digital Exchange
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('digitalExchange');
+        return next;
+      });
+      
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 50);
+    }, 200);
+
+    // Digital Exchange to dCDP
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('dcdp');
+        return next;
+      });
+      
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 50);
+    }, 700); // 200ms (initial) + 500ms (particle travel time)
+
+    // Step 3: Reverse flow - dCDP → Digital Exchange → Thomas
+    // Wait for forward flow to complete (~1.2 seconds total)
+    setTimeout(() => {
+      // dCDP to Digital Exchange (reverse)
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('dcdp', 'digitalExchange', '#aa55ff', '#00aaff', 'cash');
+      setTimeout(() => createParticleFn('dcdp', 'digitalExchange', '#aa55ff', '#00aaff', 'cash'), 25);
+      setTimeout(() => createParticleFn('dcdp', 'digitalExchange', '#aa55ff', '#00aaff', 'cash'), 50);
+    }, 1200);
+
+    // Digital Exchange to Thomas (reverse)
+    setTimeout(() => {
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'cash');
+      setTimeout(() => createParticleFn('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'cash'), 25);
+      setTimeout(() => createParticleFn('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'cash'), 50);
+    }, 1700); // 1200ms (previous) + 500ms (particle travel time)
+
+    // Step 4: Remove all glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('thomas');
+        next.delete('digitalExchange');
+        next.delete('dcdp');
+        return next;
+      });
+    }, 3500); // Total animation duration: ~3.5 seconds
+  }, []);
+
+  // Store buy asset animation ref for event listener
+  const playBuyAssetAnimationRef = useRef(null);
+  
+  useEffect(() => {
+    playBuyAssetAnimationRef.current = playBuyAssetAnimation;
+  }, [playBuyAssetAnimation]);
+
+  // Listen for Buy Asset events to trigger Thomas → Digital Exchange → dCDP → reverse animation
+  useEffect(() => {
+    const handleBuyAsset = () => {
+      console.log('[NetworkVisualizer] Buy Asset event received, playing animation...');
+      if (playBuyAssetAnimationRef.current) {
+        playBuyAssetAnimationRef.current();
+      }
+    };
+
+    window.addEventListener('buy-asset-executed', handleBuyAsset);
+
+    return () => {
+      window.removeEventListener('buy-asset-executed', handleBuyAsset);
+    };
+  }, []); // Empty dependencies - event listener setup only once
+
   // Helper function to get rectangle bounds for connection points
   const getNodeBounds = (nodeId, position) => {
     const config = NODE_CONFIG[nodeId];

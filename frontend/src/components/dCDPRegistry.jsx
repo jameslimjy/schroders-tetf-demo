@@ -518,6 +518,31 @@ function DCDPRegistry() {
     };
   }, []);
 
+  // Copy contract address to clipboard
+  const copyToClipboard = async (text, tokenName) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log(`[DCDPRegistry] Copied ${tokenName} address to clipboard: ${text}`);
+      // You could add a toast notification here if desired
+    } catch (err) {
+      console.error(`[DCDPRegistry] Failed to copy ${tokenName} address:`, err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        console.log(`[DCDPRegistry] Copied ${tokenName} address using fallback method`);
+      } catch (fallbackErr) {
+        console.error(`[DCDPRegistry] Fallback copy failed:`, fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   // Render account balances with animation
   const renderAccount = (accountName, accountData) => {
     const { address, sgdc, tes3 } = accountData || {};
@@ -592,6 +617,19 @@ function DCDPRegistry() {
         <div className="dcdp-holdings">
           {parseFloat(tes3) > 0 && (
             <div className="dcdp-holding">
+              {contractAddresses?.TES3 && (
+                <button
+                  className="dcdp-clipboard-btn"
+                  onClick={() => copyToClipboard(contractAddresses.TES3, 'TES3')}
+                  title="Copy TES3 contract address to clipboard"
+                  aria-label="Copy TES3 contract address"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              )}
               <span className="dcdp-symbol">
                 TES3 {contractAddresses?.TES3 ? `(${shortenAddress(contractAddresses.TES3)})` : ''}:
               </span>
@@ -600,6 +638,19 @@ function DCDPRegistry() {
           )}
           {parseFloat(sgdc) > 0 && (
             <div className="dcdp-holding">
+              {contractAddresses?.SGDC && (
+                <button
+                  className="dcdp-clipboard-btn"
+                  onClick={() => copyToClipboard(contractAddresses.SGDC, 'SGDC')}
+                  title="Copy SGDC contract address to clipboard"
+                  aria-label="Copy SGDC contract address"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              )}
               <span className="dcdp-symbol">SGDC:</span>
               <span className="dcdp-quantity">{parseFloat(sgdc).toLocaleString()}</span>
             </div>
@@ -644,10 +695,11 @@ function DCDPRegistry() {
         <motion.div
           key={animationKey}
           className="dcdp-registry-content"
-          initial={{ opacity: 0, x: -20, backgroundColor: '#e8f5e9' }}
-          animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
+          style={{ backgroundColor: animationKey % 2 === 0 ? 'transparent' : '#e8f5e9' }}
         >
           <AnimatePresence>
             {Object.entries(balances).map(([accountName, accountData]) => (

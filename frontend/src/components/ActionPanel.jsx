@@ -452,7 +452,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const { provider, getSigner } = useBlockchain();
   const { showSuccess, showError } = useToastContext();
   const [onrampAmount, setOnrampAmount] = useState('1000');
-  const [buyQuantity, setBuyQuantity] = useState('5.5');
+  const [buyQuantity, setBuyQuantity] = useState('2.5');
+  const [buyContractAddress, setBuyContractAddress] = useState('');
   const [sellQuantity, setSellQuantity] = useState('3');
   const [loading, setLoading] = useState(false);
 
@@ -492,6 +493,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   };
 
   // Buy tokenized asset
+  // Rate: 100:1 (e.g., 2.5 TES3 = 250 SGDC)
+  // Transfers: TES3 from AP to Thomas, SGDC from Thomas to AP
   const handleBuy = async () => {
     setLoading(true);
 
@@ -500,19 +503,46 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
+      // Validate contract address
+      if (!buyContractAddress || !buyContractAddress.startsWith('0x')) {
+        throw new Error('Please enter a valid contract address');
+      }
+
+      // Parse quantity (e.g., 2.5 TES3)
       const quantity = parseTokenAmount(buyQuantity);
-      const cost = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+      const quantityNumber = parseFloat(buyQuantity);
+      
+      if (isNaN(quantityNumber) || quantityNumber <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Calculate SGDC cost using 100:1 rate
+      // If quantity is 2.5 TES3, cost is 250 SGDC
+      const sgdcCost = parseTokenAmount((quantityNumber * 100).toString());
 
       // Check if Thomas has sufficient SGDC balance
       const thomasBalance = await getBalance('sgdc', ACCOUNTS.THOMAS);
-      if (BigInt(thomasBalance) < cost) {
-        throw new Error(`Insufficient SGDC balance. Need ${formatTokenAmount(cost)}, have ${formatTokenAmount(thomasBalance)}`);
+      if (BigInt(thomasBalance) < BigInt(sgdcCost)) {
+        throw new Error(`Insufficient SGDC balance. Need ${formatTokenAmount(sgdcCost)}, have ${formatTokenAmount(thomasBalance)}`);
       }
 
-      // Check if AP has sufficient TES3 balance
-      const apTes3Balance = await getBalance('tes3', ACCOUNTS.AP);
-      if (BigInt(apTes3Balance) < quantity) {
-        throw new Error(`AP has insufficient TES3. Need ${formatTokenAmount(quantity)}, AP has ${formatTokenAmount(apTes3Balance)}`);
+      // Get the token contract using the provided contract address
+      // We'll use ethers to get the contract instance
+      const tokenContract = new ethers.Contract(
+        buyContractAddress,
+        [
+          'function balanceOf(address) view returns (uint256)',
+          'function transfer(address,uint256) returns (bool)',
+          'function approve(address,uint256) returns (bool)',
+          'function transferFrom(address,address,uint256) returns (bool)'
+        ],
+        provider
+      );
+
+      // Check if AP has sufficient token balance
+      const apTokenBalance = await tokenContract.balanceOf(ACCOUNTS.AP);
+      if (BigInt(apTokenBalance) < quantity) {
+        throw new Error(`AP has insufficient tokens. Need ${formatTokenAmount(quantity)}, AP has ${formatTokenAmount(apTokenBalance)}`);
       }
 
       // Get signers
@@ -520,26 +550,111 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       const apSigner = getSigner(ACCOUNTS.AP);
       
       const sgdc = getContractWithSigner('sgdc', thomasSigner);
-      const tes3 = getContractWithSigner('tes3', apSigner);
+      const tokenWithSigner = tokenContract.connect(apSigner);
       
       // Step 1: Thomas approves AP to spend SGDC
-      const approveTx = await sgdc.approve(ACCOUNTS.AP, cost);
+      // This allows AP to call transferFrom to take SGDC from Thomas
+      console.log(`[Buy Asset] Step 1: Thomas approving AP to spend ${formatTokenAmount(sgdcCost)} SGDC...`);
+      const approveTx = await sgdc.approve(ACCOUNTS.AP, sgdcCost);
       await waitForTransaction(approveTx, 60000);
+      console.log(`[Buy Asset] SGDC approval confirmed`);
       
-      // Step 2: AP approves Thomas to spend TES3
-      const approveTes3Tx = await tes3.approve(ACCOUNTS.THOMAS, quantity);
-      await waitForTransaction(approveTes3Tx, 60000);
+      // Step 2: Execute atomic swap
+      // AP transfers their own tokens to Thomas using transfer() (not transferFrom)
+      // Since AP owns the tokens, they can use transfer() directly without approval
+      console.log(`[Buy Asset] Step 2: AP transferring ${buyQuantity} tokens to Thomas...`);
       
-      // Step 3: Execute atomic swap
-      // AP transfers TES3 to Thomas
-      const tes3TransferTx = await tes3.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, quantity);
-      await waitForTransaction(tes3TransferTx, 60000);
+      // Double-check AP's token balance right before transfer
+      const apTokenBalanceBeforeTransfer = await tokenContract.balanceOf(ACCOUNTS.AP);
+      console.log(`[Buy Asset] AP token balance before transfer: ${formatTokenAmount(apTokenBalanceBeforeTransfer)}`);
+      console.log(`[Buy Asset] Required quantity: ${formatTokenAmount(quantity)}`);
       
-      // Thomas transfers SGDC to AP
-      const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, cost);
-      await waitForTransaction(sgdcTransferTx, 60000);
+      if (BigInt(apTokenBalanceBeforeTransfer) < quantity) {
+        throw new Error(`AP has insufficient tokens. Need ${formatTokenAmount(quantity)}, AP has ${formatTokenAmount(apTokenBalanceBeforeTransfer)}`);
+      }
       
-      showSuccess(`Buy successful: ${buyQuantity} TES3 for ${formatTokenAmount(cost)} SGDC`);
+      let tokenTransferTx;
+      try {
+        // Use transfer() instead of transferFrom() since AP is sending their own tokens
+        tokenTransferTx = await tokenWithSigner.transfer(ACCOUNTS.THOMAS, quantity);
+        console.log(`[Buy Asset] Token transfer transaction submitted: ${tokenTransferTx.hash}`);
+        const tokenReceipt = await waitForTransaction(tokenTransferTx, 60000);
+        console.log(`[Buy Asset] Token transfer confirmed in block ${tokenReceipt.blockNumber}`);
+        
+        // Check if transaction actually succeeded
+        if (tokenReceipt.status === 0) {
+          throw new Error('Token transfer transaction failed. AP may not have sufficient gas (ETH) or token balance.');
+        }
+      } catch (err) {
+        console.error('[Buy Asset] Token transfer failed:', err);
+        console.error('[Buy Asset] Error details:', {
+          message: err.message,
+          code: err.code,
+          reason: err.reason,
+          data: err.data,
+          transaction: err.transaction
+        });
+        
+        // Extract the actual revert reason if available
+        let errorMessage = err.message || 'Unknown error';
+        if (err.reason) {
+          errorMessage = err.reason;
+        } else if (err.data && err.data.message) {
+          errorMessage = err.data.message;
+        }
+        
+        if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient balance')) {
+          throw new Error('AP account has insufficient ETH for gas. Please fund the AP account.');
+        } else if (errorMessage.includes('execution reverted') || errorMessage.includes('ERC20')) {
+          // Check if it's a balance issue
+          if (errorMessage.includes('balance') || errorMessage.includes('insufficient')) {
+            throw new Error(`Token transfer failed: AP has insufficient token balance. ${errorMessage}`);
+          }
+          throw new Error(`Token transfer failed: ${errorMessage}. Check that AP has sufficient token balance.`);
+        }
+        throw new Error(`Token transfer failed: ${errorMessage}`);
+      }
+      
+      // Step 3: Thomas transfers SGDC to AP using transferFrom
+      // This requires the approval from Step 1
+      console.log(`[Buy Asset] Step 3: Thomas transferring ${formatTokenAmount(sgdcCost)} SGDC to AP...`);
+      let sgdcTransferTx;
+      try {
+        // Thomas already approved AP in Step 1, so AP can now call transferFrom
+        // Get SGDC contract with AP signer since AP is the one calling transferFrom
+        const sgdcWithAPSigner = getContractWithSigner('sgdc', apSigner);
+        sgdcTransferTx = await sgdcWithAPSigner.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, sgdcCost);
+        console.log(`[Buy Asset] SGDC transfer transaction submitted: ${sgdcTransferTx.hash}`);
+        const sgdcReceipt = await waitForTransaction(sgdcTransferTx, 60000);
+        console.log(`[Buy Asset] SGDC transfer confirmed in block ${sgdcReceipt.blockNumber}`);
+        
+        // Check if transaction actually succeeded
+        if (sgdcReceipt.status === 0) {
+          throw new Error('SGDC transfer transaction failed. Check that Thomas has sufficient SGDC balance and AP has been approved.');
+        }
+      } catch (err) {
+        console.error('[Buy Asset] SGDC transfer failed:', err);
+        if (err.message && err.message.includes('insufficient funds')) {
+          throw new Error('AP account has insufficient ETH for gas. Please fund the AP account.');
+        } else if (err.message && err.message.includes('execution reverted')) {
+          throw new Error(`SGDC transfer failed: ${err.message}. Check that Thomas has sufficient SGDC balance and allowance.`);
+        }
+        throw new Error(`SGDC transfer failed: ${err.message || 'Unknown error. AP may not have sufficient gas (ETH).'}`);
+      }
+      
+      showSuccess(`Buy successful: ${buyQuantity} tokens for ${formatTokenAmount(sgdcCost)} SGDC`);
+      
+      // Trigger dCDP Registry refresh to show updated balances with phase in/out animation
+      window.dispatchEvent(new CustomEvent('dcdp-registry-updated'));
+      
+      // Trigger network visualizer animation: Thomas → Digital Exchange → dCDP, then reverse
+      window.dispatchEvent(new CustomEvent('buy-asset-executed', {
+        detail: {
+          quantity: buyQuantity,
+          contractAddress: buyContractAddress,
+          sgdcCost: formatTokenAmount(sgdcCost)
+        }
+      }));
     } catch (err) {
       console.error('Buy error:', err);
       showError(err.message || 'Failed to buy asset');
@@ -625,15 +740,23 @@ function ThomasActionsContent({ onOnrampSuccess }) {
 
       <div className="action-group">
         <div className="action-name">Buy Asset</div>
-        <div className="action-input-row">
-          <input
-            type="number"
-            step="0.1"
-            value={buyQuantity}
-            onChange={(e) => setBuyQuantity(e.target.value)}
-            placeholder="insert quantity"
-          />
-          <button onClick={handleBuy} disabled={loading} className="action-submit-btn" title="Buy Asset">
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="number"
+              step="0.1"
+              value={buyQuantity}
+              onChange={(e) => setBuyQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+            <input
+              type="text"
+              value={buyContractAddress}
+              onChange={(e) => setBuyContractAddress(e.target.value)}
+              placeholder="insert contract address"
+            />
+          </div>
+          <button onClick={handleBuy} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Buy Asset">
             &gt;
             <i>✓</i>
           </button>

@@ -72,9 +72,11 @@
 
 .dcdp-holding {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
   padding: 2px 0;
+  gap: 6px;
 }
 
 .dcdp-symbol {
@@ -109,5 +111,34 @@
 
 .dcdp-error {
   color: #d32f2f;
+}
+
+/* Clipboard button for copying contract addresses */
+.dcdp-clipboard-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  margin-right: 2px;
+}
+
+.dcdp-clipboard-btn:hover {
+  opacity: 1;
+  color: #0f2859;
+}
+
+.dcdp-clipboard-btn:active {
+  opacity: 0.8;
+  transform: scale(0.95);
+}
+
+.dcdp-clipboard-btn svg {
+  display: block;
 }
 
