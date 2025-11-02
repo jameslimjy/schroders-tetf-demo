@@ -4,7 +4,8 @@
  * Reads from JSON file or API endpoint
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CDP_REGISTRY_API } from '../utils/constants';
 import './CDPRegistry.css';
 
@@ -57,28 +58,78 @@ function CDPRegistry() {
   const [registryData, setRegistryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [animationKey, setAnimationKey] = useState(0); // Key to trigger phase in/out animation
+  const prevRegistryDataRef = useRef(null); // Track previous data to detect changes
 
   // Load CDP registry data
+  // Reads from localStorage first (if ETF creation has occurred), then falls back to API
   useEffect(() => {
     async function loadRegistry() {
       try {
-        // Fetch from public API endpoint
-        // Note: In browser, we can only access files in the public directory
-        const response = await fetch(CDP_REGISTRY_API);
+        let data;
         
-        if (!response.ok) {
-          throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+        // Check localStorage first - this contains the most up-to-date data after ETF creation
+        // If ETF shares were created, the updated registry is stored in localStorage
+        const storedRegistry = localStorage.getItem('cdp-registry');
+        
+        if (storedRegistry) {
+          try {
+            data = JSON.parse(storedRegistry);
+            console.log('[CDPRegistry] Loaded registry from localStorage');
+          } catch (e) {
+            console.warn('[CDPRegistry] Failed to parse stored registry, fetching from API');
+            // If localStorage data is corrupted, fetch from API
+            const response = await fetch(CDP_REGISTRY_API);
+            
+            if (!response.ok) {
+              throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              throw new Error('Response is not JSON - received HTML error page instead');
+            }
+            
+            data = await response.json();
+          }
+        } else {
+          // No localStorage data, fetch from public API endpoint
+          // Note: In browser, we can only access files in the public directory
+          const response = await fetch(CDP_REGISTRY_API);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+          }
+          
+          // Check if response is actually JSON before parsing
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Response is not JSON - received HTML error page instead');
+          }
+          
+          data = await response.json();
+          console.log('[CDPRegistry] Loaded registry from API');
+          
+          // Sync localStorage with API data so future reads can use localStorage
+          // This ensures consistency across page refreshes
+          try {
+            localStorage.setItem('cdp-registry', JSON.stringify(data));
+          } catch (e) {
+            console.warn('[CDPRegistry] Failed to store registry in localStorage:', e);
+          }
         }
         
-        // Check if response is actually JSON before parsing
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Response is not JSON - received HTML error page instead');
-        }
+        // Track previous data to detect changes
+        const prevData = prevRegistryDataRef.current;
+        prevRegistryDataRef.current = data;
         
-        const data = await response.json();
         setRegistryData(data);
         setError(null);
+        
+        // Trigger animation if data changed (not on initial load)
+        if (prevData !== null && JSON.stringify(prevData) !== JSON.stringify(data)) {
+          setAnimationKey(prev => prev + 1);
+        }
       } catch (err) {
         console.error('Error loading CDP registry:', err);
         setError(err.message);
@@ -95,21 +146,44 @@ function CDPRegistry() {
       }
     }
 
+    // Initial load
     loadRegistry();
 
-    // Set up polling to refresh data periodically
+    // Listen for custom event to refresh immediately after ETF creation
+    // This ensures the registry updates right away without waiting for polling
+    const handleRegistryUpdate = () => {
+      console.log('[CDPRegistry] Registry update event received, refreshing...');
+      // Trigger phase out/in animation by updating the key
+      setAnimationKey(prev => prev + 1);
+      // Load registry after a small delay to allow animation to start
+      setTimeout(() => {
+        loadRegistry();
+      }, 100);
+    };
+    
+    window.addEventListener('cdp-registry-updated', handleRegistryUpdate);
+
+    // Set up polling to refresh data periodically (fallback)
+    // This ensures we get updates even if events are missed
     const interval = setInterval(loadRegistry, 5000); // Refresh every 5 seconds
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('cdp-registry-updated', handleRegistryUpdate);
+    };
   }, []);
 
   // Render account balances
   const renderAccount = (accountId, accountData, uniqueId) => {
     const { stocks = {}, etfs = {} } = accountData || {};
     
-    // Combine stocks and ETFs for display
-    const allHoldings = { ...stocks, ...etfs };
-    const holdingsEntries = Object.entries(allHoldings).filter(([_, value]) => value > 0);
+    // Separate ETFs and stocks, then combine with ETFs first
+    // This ensures ES3 ETF appears at the top without scrolling
+    const etfEntries = Object.entries(etfs).filter(([_, value]) => value > 0);
+    const stockEntries = Object.entries(stocks).filter(([_, value]) => value > 0);
+    
+    // Sort ETFs and stocks separately, then combine with ETFs first
+    const holdingsEntries = [...etfEntries, ...stockEntries];
 
     if (holdingsEntries.length === 0) {
       return (
@@ -202,12 +276,21 @@ function CDPRegistry() {
         />
       <h3>CDP Registry</h3>
       </div>
-      <div className="cdp-registry-content">
-        {sortedAccounts.map(([accountId, accountData]) => {
-          const uniqueId = ownerIds[accountId];
-          return renderAccount(accountId, accountData, uniqueId);
-        })}
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={animationKey}
+          className="cdp-registry-content"
+          initial={{ opacity: 0, x: -20, backgroundColor: '#e8f5e9' }}
+          animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          {sortedAccounts.map(([accountId, accountData]) => {
+            const uniqueId = ownerIds[accountId];
+            return renderAccount(accountId, accountData, uniqueId);
+          })}
+        </motion.div>
+      </AnimatePresence>
       {error && <div className="cdp-warning">Warning: {error}</div>}
     </div>
   );

@@ -318,6 +318,32 @@ function NetworkVisualizer({ animationTrigger }) {
     }, 3250); // Reduced from 6500 to 3250 for 2x speed
   };
 
+  // Animation sequence for ETF creation - makes CDP and AP glow
+  // Shows that ETF shares were created in CDP registry for AP
+  const playETFAnimation = () => {
+    // Step 1: Make CDP glow with neon effect
+    setActiveNodes((prev) => new Set(prev).add('cdp'));
+
+    // Step 2: Make AP glow with neon effect
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('ap');
+        return next;
+      });
+    }, 300);
+
+    // Step 3: Remove glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('cdp');
+        next.delete('ap');
+        return next;
+      });
+    }, 2500); // 2.5 second animation duration
+  };
+
   // Watch for animation trigger changes
   useEffect(() => {
     if (animationTrigger && animationTrigger.type === 'onramp') {
@@ -328,6 +354,20 @@ function NetworkVisualizer({ animationTrigger }) {
       }
     }
   }, [animationTrigger]);
+
+  // Listen for ETF creation events to trigger CDP and AP glow animation
+  useEffect(() => {
+    const handleETFCreated = () => {
+      console.log('[NetworkVisualizer] ETF created event received, playing animation...');
+      playETFAnimation();
+    };
+
+    window.addEventListener('etf-created', handleETFCreated);
+
+    return () => {
+      window.removeEventListener('etf-created', handleETFCreated);
+    };
+  }, []);
 
   // Helper function to get rectangle bounds for connection points
   const getNodeBounds = (nodeId, position) => {

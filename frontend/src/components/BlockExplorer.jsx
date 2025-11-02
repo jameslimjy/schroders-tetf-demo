@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBlockchain } from '../hooks/useBlockchain';
 import { shortenAddress } from '../utils/contractHelpers';
-import { MAX_TRANSACTIONS_DISPLAY, ADDRESS_SHORT_LENGTH } from '../utils/constants';
+import { ADDRESS_SHORT_LENGTH } from '../utils/constants';
 import './BlockExplorer.css';
 
 function BlockExplorer() {
@@ -47,18 +47,20 @@ function BlockExplorer() {
     return functionSignatures[sig] || 'unknown';
   };
 
-  // Load recent transactions
-  // Optimized to load fewer blocks for better performance (reduced from 10 to 5)
+  // Load all transactions from recent blocks
+  // Loads up to 100 blocks to capture all past transactions
+  // Removed transaction limit - shows all transactions with scrollbar
   const loadTransactions = useCallback(async () => {
     if (!isConnected || !provider || !blockNumber) return;
 
     try {
       setLoading(true);
 
-      // Get recent blocks (last 5 blocks to catch transactions - reduced from 10 for performance)
-      // Loading fewer blocks reduces API calls and improves responsiveness
+      // Get recent blocks (up to 100 blocks to capture all past transactions)
+      // This ensures we show all transactions, not just the most recent ones
       const recentBlocks = [];
-      for (let i = 0; i < 5 && blockNumber - i >= 0; i++) {
+      const maxBlocksToLoad = 100; // Load up to 100 blocks to capture history
+      for (let i = 0; i < maxBlocksToLoad && blockNumber - i >= 0; i++) {
         try {
           const block = await provider.getBlock(blockNumber - i, true);
           if (block && block.transactions) {
@@ -104,15 +106,15 @@ function BlockExplorer() {
         }
       }
 
-      // Sort by block number (newest first) and limit
+      // Sort by block number (newest first)
+      // No limit - show all transactions (scrollbar will handle overflow)
       txList.sort((a, b) => b.blockNumber - a.blockNumber);
-      const limitedTxList = txList.slice(0, MAX_TRANSACTIONS_DISPLAY);
       
       // Track previous transactions to detect new ones
       // Use functional update to avoid dependency on transactions state
       setTransactions((prevTx) => {
         prevTransactionsRef.current = prevTx;
-        return limitedTxList;
+        return txList; // Return all transactions, not limited
       });
     } catch (err) {
       console.error('Error loading transactions:', err);

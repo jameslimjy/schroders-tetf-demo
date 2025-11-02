@@ -91,28 +91,71 @@ function DCDPRegistry() {
 
       // Try to get THOMAS address from contract
       // THOMAS should NOT appear until wallet is created via createWallet()
+      // Try both getAddress() and ownerToAddress() (public mapping getter)
       try {
-        const thomasAddress = await contracts.dcdp.getAddress('THOMAS');
+        // Try ownerToAddress first (public mapping getter - more reliable)
+        let thomasAddress;
+        try {
+          thomasAddress = await contracts.dcdp.ownerToAddress('THOMAS');
+          console.log('[DCDPRegistry] resolveAddresses - THOMAS address from ownerToAddress:', thomasAddress);
+        } catch (e1) {
+          // Fallback to getAddress if ownerToAddress doesn't work
+          try {
+            thomasAddress = await contracts.dcdp.getAddress('THOMAS');
+            console.log('[DCDPRegistry] resolveAddresses - THOMAS address from getAddress:', thomasAddress);
+          } catch (e2) {
+            console.error('[DCDPRegistry] resolveAddresses - Both ownerToAddress and getAddress failed:', e1, e2);
+            throw e2;
+          }
+        }
+        
+        console.log('[DCDPRegistry] resolveAddresses - THOMAS address type:', typeof thomasAddress);
+        console.log('[DCDPRegistry] resolveAddresses - THOMAS address value:', thomasAddress);
+        console.log('[DCDPRegistry] resolveAddresses - Is zero address?', thomasAddress === '0x0000000000000000000000000000000000000000' || thomasAddress === null || thomasAddress === undefined);
+        console.log('[DCDPRegistry] resolveAddresses - dCDP contract address:', contracts.dcdp.target);
+        console.log('[DCDPRegistry] resolveAddresses - contractAddresses.dCDP:', contractAddresses?.dCDP);
+        console.log('[DCDPRegistry] resolveAddresses - Addresses match?', thomasAddress?.toLowerCase() === contracts.dcdp.target?.toLowerCase());
+        
+        // Check if it's a contract address
+        const isContractAddr = isContractAddress(thomasAddress, contracts, contractAddresses);
+        console.log('[DCDPRegistry] resolveAddresses - Is contract address?', isContractAddr);
+        
         // Only include THOMAS if wallet was created (non-zero address)
         // Also verify it's not a contract address
-        if (thomasAddress && 
+        // Check for null/undefined as well as zero address
+        const isValidAddress = thomasAddress && 
             thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-            !isContractAddress(thomasAddress, contracts, contractAddresses)) {
+            thomasAddress !== null &&
+            thomasAddress !== undefined &&
+            typeof thomasAddress === 'string' &&
+            thomasAddress.length === 42;
+            
+        if (isValidAddress && !isContractAddr) {
+          console.log('[DCDPRegistry] resolveAddresses - ✓ THOMAS wallet found! Adding to addresses:', thomasAddress);
           addresses.THOMAS = thomasAddress;
+        } else {
+          console.log('[DCDPRegistry] resolveAddresses - ✗ THOMAS wallet not created or invalid');
+          if (isContractAddr) {
+            console.warn('[DCDPRegistry] resolveAddresses - THOMAS address matches contract address - wallet was NOT created successfully!');
+            console.warn('[DCDPRegistry] resolveAddresses - This means createWallet() transaction may have failed or reverted');
+          }
         }
         // Do NOT fallback to ACCOUNTS.THOMAS - THOMAS should not appear until wallet is created
       } catch (e) {
+        console.error('[DCDPRegistry] resolveAddresses - Error getting THOMAS address:', e);
         // Do NOT fallback to ACCOUNTS.THOMAS - THOMAS should not appear until wallet is created
         // Leave THOMAS out of addresses object
       }
 
+      console.log('[DCDPRegistry] Resolved addresses:', addresses);
       setAccountAddresses(addresses);
+      return addresses; // Return addresses for promise chain
     } catch (err) {
       console.error('Error resolving addresses:', err);
       // On error, only show AP with default address
-      setAccountAddresses({
-        AP: ACCOUNTS.AP,
-      });
+      const fallbackAddresses = { AP: ACCOUNTS.AP };
+      setAccountAddresses(fallbackAddresses);
+      return fallbackAddresses;
     }
   }, [contracts, contractAddresses]);
 
@@ -128,18 +171,20 @@ function DCDPRegistry() {
     try {
       const newBalances = {};
 
-      // Only show accounts that have wallets registered in the dCDP contract
-      // This ensures THOMAS only appears AFTER the wallet is created
-      const accountsToCheck = {};
+      // Use accountAddresses state as the source of truth
+      // This is updated by resolveAddresses() which listens to WalletCreated events
+      // Start with the current accountAddresses state
+      const accountsToCheck = { ...accountAddresses };
       
+      console.log('[DCDPRegistry] Starting loadBalances with accountAddresses:', accountAddresses);
+      
+      // Also check contract directly to ensure we have the latest state
+      // This helps catch cases where state might be stale
       if (contracts.dcdp) {
         // Check AP's wallet
-        // AP should have a wallet from the start (pre-registered)
         try {
           const apAddress = await contracts.dcdp.getAddress('AP');
           console.log('[DCDPRegistry] AP address from contract:', apAddress);
-          console.log('[DCDPRegistry] AP address from constants:', ACCOUNTS.AP);
-          console.log('[DCDPRegistry] dCDP contract address:', contracts.dcdp.target);
           
           // Verify the address is valid and not a contract address
           if (apAddress && 
@@ -147,51 +192,61 @@ function DCDPRegistry() {
               !isContractAddress(apAddress, contracts, contractAddresses)) {
             accountsToCheck.AP = apAddress;
             console.log('[DCDPRegistry] Using AP address from contract:', apAddress);
-          } else {
-            // AP starts with default wallet address
+          } else if (!accountsToCheck.AP) {
+            // AP starts with default wallet address if not already set
             accountsToCheck.AP = ACCOUNTS.AP;
             console.log('[DCDPRegistry] Using AP address from constants:', ACCOUNTS.AP);
           }
         } catch (e) {
           console.error('[DCDPRegistry] Error getting AP address:', e);
-          // AP starts with default wallet address
-          accountsToCheck.AP = ACCOUNTS.AP;
-          console.log('[DCDPRegistry] Using AP address from constants (error fallback):', ACCOUNTS.AP);
+          if (!accountsToCheck.AP) {
+            accountsToCheck.AP = ACCOUNTS.AP;
+          }
         }
         
-        // Check THOMAS's wallet
+        // Check THOMAS's wallet - this is critical for detecting wallet creation
         // THOMAS should NOT appear until wallet is created via createWallet()
+        // Use ownerToAddress (public mapping) which is more reliable
         try {
-          const thomasAddress = await contracts.dcdp.getAddress('THOMAS');
-          // Debug logging to help troubleshoot
-          console.log('[DCDPRegistry] THOMAS address from contract:', thomasAddress);
-          console.log('[DCDPRegistry] THOMAS address from constants:', ACCOUNTS.THOMAS);
-          console.log('[DCDPRegistry] dCDP contract address:', contracts.dcdp.target);
+          let thomasAddress;
+          try {
+            thomasAddress = await contracts.dcdp.ownerToAddress('THOMAS');
+            console.log('[DCDPRegistry] loadBalances - THOMAS address from ownerToAddress:', thomasAddress);
+          } catch (e1) {
+            thomasAddress = await contracts.dcdp.getAddress('THOMAS');
+            console.log('[DCDPRegistry] loadBalances - THOMAS address from getAddress:', thomasAddress);
+          }
+          
+          console.log('[DCDPRegistry] loadBalances - THOMAS address:', thomasAddress);
+          console.log('[DCDPRegistry] loadBalances - Is zero address?', thomasAddress === '0x0000000000000000000000000000000000000000');
+          const isContractAddr = isContractAddress(thomasAddress, contracts, contractAddresses);
+          console.log('[DCDPRegistry] loadBalances - Is contract address?', isContractAddr);
           
           // Only include THOMAS if wallet was created (non-zero address)
           // Also verify it's not a contract address
           if (thomasAddress && 
               thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-              !isContractAddress(thomasAddress, contracts, contractAddresses)) {
-            console.log('[DCDPRegistry] Including THOMAS with address:', thomasAddress);
+              !isContractAddr) {
+            console.log('[DCDPRegistry] loadBalances - ✓ THOMAS wallet found! Including with address:', thomasAddress);
             accountsToCheck.THOMAS = thomasAddress;
           } else {
-            console.log('[DCDPRegistry] THOMAS wallet not created yet, excluding from display');
-            if (thomasAddress && isContractAddress(thomasAddress, contracts, contractAddresses)) {
-              console.warn('[DCDPRegistry] THOMAS address matches contract address - this is incorrect!');
+            console.log('[DCDPRegistry] loadBalances - ✗ THOMAS wallet not created yet (or invalid), excluding from display');
+            // Remove THOMAS from accountsToCheck if it was there but wallet wasn't created
+            delete accountsToCheck.THOMAS;
+            if (isContractAddr) {
+              console.warn('[DCDPRegistry] loadBalances - THOMAS address matches contract address - wallet was NOT created!');
             }
           }
-          // Do NOT fallback to ACCOUNTS.THOMAS - THOMAS should not appear until wallet is created
         } catch (e) {
-          console.log('[DCDPRegistry] Error checking THOMAS address:', e);
-          // Do NOT fallback to ACCOUNTS.THOMAS - THOMAS should not appear until wallet is created
-          // Leave THOMAS out of accountsToCheck
+          console.error('[DCDPRegistry] loadBalances - Error checking THOMAS address:', e);
+          // Remove THOMAS if there was an error checking
+          delete accountsToCheck.THOMAS;
         }
       } else {
         // If contract not ready, only show AP with default address
         console.log('[DCDPRegistry] Contract not ready, using AP address from constants:', ACCOUNTS.AP);
         accountsToCheck.AP = ACCOUNTS.AP;
-        // Do NOT include THOMAS until contract is ready and wallet is created
+        delete accountsToCheck.THOMAS;
       }
       
       // Final safety check: ensure we're not using any contract address
@@ -211,8 +266,8 @@ function DCDPRegistry() {
       
       console.log('[DCDPRegistry] Final accountsToCheck after safety checks:', accountsToCheck);
 
-      // Always include AP and THOMAS with their default addresses if contracts are ready
-      // This ensures they're shown even if wallets aren't registered in dCDP contract
+      // Always include AP with default address if contracts are ready
+      // AP should always be shown from the start
       if (isReady) {
         // Always include AP
         if (!accountsToCheck.AP) {
@@ -220,28 +275,10 @@ function DCDPRegistry() {
           console.log('[DCDPRegistry] Adding AP with default address:', ACCOUNTS.AP);
         }
         
-        // Include THOMAS if wallet was created, otherwise use default address as fallback
-        // (This allows showing THOMAS even if wallet creation didn't register properly)
-        if (!accountsToCheck.THOMAS) {
-          // Try to get from contract first
-          try {
-            const thomasAddress = await contracts.dcdp.getAddress('THOMAS');
-            if (thomasAddress && 
-                thomasAddress !== '0x0000000000000000000000000000000000000000' &&
-                !isContractAddress(thomasAddress, contracts, contractAddresses)) {
-              accountsToCheck.THOMAS = thomasAddress;
-              console.log('[DCDPRegistry] Adding THOMAS with contract address:', thomasAddress);
-            } else {
-              // Fallback to default address if contract lookup fails
-              accountsToCheck.THOMAS = ACCOUNTS.THOMAS;
-              console.log('[DCDPRegistry] Adding THOMAS with default address (fallback):', ACCOUNTS.THOMAS);
-            }
-          } catch (e) {
-            // Fallback to default address
-            accountsToCheck.THOMAS = ACCOUNTS.THOMAS;
-            console.log('[DCDPRegistry] Adding THOMAS with default address (error fallback):', ACCOUNTS.THOMAS);
-          }
-        }
+        // DO NOT include THOMAS unless wallet was created in the contract
+        // THOMAS should only appear after createWallet() is called
+        // The getAddress('THOMAS') check above already handles this correctly
+        // No fallback - if wallet wasn't created, THOMAS won't appear
       }
 
       // Load balances for each account
@@ -299,9 +336,12 @@ function DCDPRegistry() {
       }
 
       // Track previous balances to detect new accounts
-      // Note: We update prevBalancesRef after setBalances, not before, to avoid dependency issues
+      // Update prevBalancesRef AFTER state update completes
+      // Use setTimeout to ensure state has been set before updating ref
       setBalances(newBalances);
-      prevBalancesRef.current = newBalances;
+      setTimeout(() => {
+        prevBalancesRef.current = newBalances;
+      }, 0);
       setError(null);
     } catch (err) {
       console.error('Error loading dCDP balances:', err);
@@ -309,7 +349,7 @@ function DCDPRegistry() {
     } finally {
       setLoading(false);
     }
-  }, [isReady, accountAddresses, contracts, getBalance, contractAddresses]);
+  }, [isReady, contracts, getBalance, contractAddresses, accountAddresses]);
 
   // Use refs to store the latest callback functions without causing re-renders
   // This prevents the event listener useEffect from re-running when callbacks change
@@ -358,33 +398,54 @@ function DCDPRegistry() {
   useEffect(() => {
     if (!isReady || !contracts.sgdc || !contracts.tes3 || !contracts.dcdp) return;
 
-    const handleTransfer = () => {
+    const handleTransfer = (from, to, amount, event) => {
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
       
-      // Debounce balance refresh to prevent excessive updates during rapid transactions
-      // Use ref to get latest function without dependency on it
+      // Trigger animation first, then update balances during the animation
+      // This creates a smoother effect where the balance updates mid-animation
       debounceTimerRef.current = setTimeout(() => {
-        loadBalancesRef.current();
-        debounceTimerRef.current = null;
-      }, 1000); // 1 second debounce to prevent UI freezing
+        // Trigger animation key update first - this starts the phase out animation
+        setAnimationKey(prev => prev + 1);
+        
+        // Wait for animation to start (phase out), then load balances mid-animation
+        // The animation duration is ~0.5s, so we update balances at ~0.35s
+        setTimeout(async () => {
+          // Load balances mid-animation - this will cause the number to change during phase in
+          await loadBalancesRef.current();
+          debounceTimerRef.current = null;
+        }, 350); // Update balances during animation
+        
+      }, 300); // Small delay to ensure transaction is confirmed
     };
 
-    const handleWalletCreated = () => {
+    const handleWalletCreated = (ownerId, walletAddress, event) => {
+      console.log('[DCDPRegistry] WalletCreated event received!', { ownerId, walletAddress });
+      
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      
+      // Trigger animation key update to show phase in/out animation
+      // This makes it obvious that a new account (THOMAS) has been added
+      setAnimationKey(prev => prev + 1);
       
       // Immediately refresh addresses and balances when wallet is created
       // Use refs to get latest functions without dependency on them
-      debounceTimerRef.current = setTimeout(() => {
-        resolveAddressesRef.current();
-        loadBalancesRef.current();
+      // Increase delay slightly to ensure blockchain state has propagated
+      debounceTimerRef.current = setTimeout(async () => {
+        console.log('[DCDPRegistry] Refreshing addresses after wallet creation...');
+        await resolveAddressesRef.current();
+        console.log('[DCDPRegistry] Addresses refreshed, now loading balances...');
+        // Give a small delay for state to update before loading balances
+        setTimeout(() => {
+          loadBalancesRef.current();
+        }, 100);
         debounceTimerRef.current = null;
-      }, 500);
+      }, 800); // Increased delay to ensure transaction is fully mined
     };
 
     const handleTokenized = () => {
@@ -394,10 +455,17 @@ function DCDPRegistry() {
       }
       
       // Refresh balances when tokenization occurs (TES3 tokens are minted)
-      // Use a shorter delay since the transaction should already be confirmed
+      // Trigger animation first, then update balances during animation
       debounceTimerRef.current = setTimeout(() => {
-        loadBalancesRef.current();
-        debounceTimerRef.current = null;
+        // Trigger animation first
+        setAnimationKey(prev => prev + 1);
+        
+        // Update balances mid-animation
+        setTimeout(async () => {
+          await loadBalancesRef.current();
+          debounceTimerRef.current = null;
+        }, 350); // Update during animation
+        
       }, 300);
     };
 
@@ -480,15 +548,37 @@ function DCDPRegistry() {
     const hasHoldings = parseFloat(sgdc) > 0 || parseFloat(tes3) > 0;
 
     // Check if this is a newly added account
-    const isNew = !prevBalancesRef.current[accountName] && balances[accountName];
+    // This detects when THOMAS first appears after wallet creation
+    // Compare current balances with previous to detect new accounts
+    const wasPreviouslyInBalances = prevBalancesRef.current && prevBalancesRef.current[accountName];
+    const isCurrentlyInBalances = balances[accountName];
+    const isNew = !wasPreviouslyInBalances && isCurrentlyInBalances;
+    
+    // Enhanced animation for new accounts (especially THOMAS)
+    // More pronounced animation to make it obvious when a new account appears
+    const animationProps = isNew ? {
+      initial: { opacity: 0, scale: 0.8, y: -20, x: -10 },
+      animate: { opacity: 1, scale: 1, y: 0, x: 0 },
+      transition: { 
+        duration: 0.6, 
+        ease: "easeOut",
+        type: "spring",
+        stiffness: 200,
+        damping: 15
+      }
+    } : {
+      initial: false,
+      animate: { opacity: 1, scale: 1, y: 0 },
+      transition: { duration: 0.3 }
+    };
 
     return (
       <motion.div
-        key={accountName}
+        key={`${accountName}-${animationKey}`}
         className="dcdp-account"
-        initial={isNew ? { opacity: 0, scale: 0.9, y: -10 } : false}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
+        initial={animationProps.initial}
+        animate={animationProps.animate}
+        transition={animationProps.transition}
         whileHover={{ scale: 1.02 }}
       >
         <div className="dcdp-account-header">
