@@ -4,28 +4,38 @@
  * Integrates all components: Network Visualizer, Block Explorer, Registries, Action Panels
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import NetworkVisualizer from './components/NetworkVisualizer';
 import BlockExplorer from './components/BlockExplorer';
 import CDPRegistry from './components/CDPRegistry';
 import DCDPRegistry from './components/dCDPRegistry';
-import { ThomasActions, DCDPActions, APActions } from './components/ActionPanel';
+import { CombinedActions } from './components/ActionPanel';
+import { ToastContainer } from './components/Toast';
+import { ToastProvider, useToastContext } from './contexts/ToastContext';
 import { useBlockchain } from './hooks/useBlockchain';
 import './App.css';
 
-function App() {
-  const { isConnected, error: blockchainError } = useBlockchain();
+function AppContent() {
+  const { error: blockchainError } = useBlockchain();
+  const { toasts, removeToast } = useToastContext();
+  
+  // State to trigger animations in NetworkVisualizer
+  // When this changes, NetworkVisualizer will detect it and play the animation
+  const [animationTrigger, setAnimationTrigger] = useState(null);
+
+  // Callback to trigger onramp animation
+  // This will be called from ActionPanel when onramp action is executed
+  const triggerOnrampAnimation = useCallback(() => {
+    setAnimationTrigger({ type: 'onramp', timestamp: Date.now() });
+  }, []);
 
   return (
     <div className="app">
+      {/* Toast notifications container */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
       <header className="app-header">
-        <h1>Tokenized ETF Demo</h1>
-        <p className="app-subtitle">
-          SPDR Straits Times Index ETF (ES3) → Tokenized ETF (TES3)
-        </p>
-        <div className={`app-status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '✓ Connected to Blockchain' : '✗ Disconnected'}
-        </div>
+        <h1>Schroders Tokenized ETF Demo</h1>
         {blockchainError && (
           <div className="app-error">
             Blockchain Error: {blockchainError}
@@ -34,44 +44,40 @@ function App() {
       </header>
 
       <main className="app-main">
-        {/* Network Visualizer - Large top/central area */}
-        <section className="app-section app-section-visualizer">
-          <NetworkVisualizer />
-        </section>
-
-        {/* Action Panels - Right Side (vertically stacked) */}
-        <section className="app-section app-section-actions">
-          <ThomasActions />
-          <DCDPActions />
-          <APActions />
-        </section>
-
-        {/* Bottom Section: Block Explorer, CDP Registry, dCDP Registry (horizontally arranged) */}
-        <section className="app-section app-section-registries">
-          <div className="registry-grid">
-            <div className="registry-item">
-              <BlockExplorer />
-            </div>
-            <div className="registry-item">
-              <CDPRegistry />
-            </div>
-            <div className="registry-item">
-              <DCDPRegistry />
-            </div>
+        {/* Left Column: CDP Registry (top) and dCDP Registry (bottom) */}
+        <section className="app-section app-section-left-registries">
+          <div className="registry-item">
+            <CDPRegistry />
+          </div>
+          <div className="registry-item">
+            <DCDPRegistry />
           </div>
         </section>
-      </main>
 
-      <footer className="app-footer">
-        <p>
-          Demo Project - Tokenized Securities Platform | 
-          {' '}
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer">
-            GitHub
-          </a>
-        </p>
-      </footer>
+        {/* Center Column: Network Visualizer (top) and Block Explorer (bottom, expanded) */}
+        <section className="app-section app-section-visualizer">
+          <NetworkVisualizer animationTrigger={animationTrigger} />
+        </section>
+
+        {/* Bottom Section: Block Explorer (expanded width, same as visualizer) */}
+        <section className="app-section app-section-block-explorer">
+          <BlockExplorer />
+        </section>
+
+        {/* Right Column: Action Panels (spans full height) */}
+        <section className="app-section app-section-actions">
+          <CombinedActions onOnrampSuccess={triggerOnrampAnimation} />
+        </section>
+      </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

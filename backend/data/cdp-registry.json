@@ -1,4 +1,8 @@
 {
+  "owner_ids": {
+    "AP": "SN91X81J21",
+    "THOMAS": "SN72K45M83"
+  },
   "accounts": {
     "AP": {
       "stocks": {

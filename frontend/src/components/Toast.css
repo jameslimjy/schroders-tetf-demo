@@ -1,0 +1,134 @@
+/**
+ * Toast Notification Styles
+ * Displays toast messages at the center top of the screen
+ */
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  /* Ensure container doesn't block interactions when empty */
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 300px;
+  max-width: 500px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  animation: toastSlideIn 0.3s ease-out;
+  cursor: pointer;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+/* Slide in animation from top */
+@keyframes toastSlideIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Leaving animation */
+.toast-leaving {
+  animation: toastSlideOut 0.3s ease-in forwards;
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #333;
+}
+
+/* Success toast styling */
+.toast-success {
+  border-left: 4px solid #2e7d32;
+  background: #e8f5e9;
+}
+
+.toast-success .toast-message {
+  color: #2e7d32;
+}
+
+/* Error toast styling */
+.toast-error {
+  border-left: 4px solid #c62828;
+  background: #ffebee;
+}
+
+.toast-error .toast-message {
+  color: #c62828;
+}
+
+/* Close button */
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  font-weight: 300;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  color: #333;
+}
+
+.toast-success .toast-close {
+  color: #2e7d32;
+}
+
+.toast-success .toast-close:hover {
+  color: #1b5e20;
+}
+
+.toast-error .toast-close {
+  color: #c62828;
+}
+
+.toast-error .toast-close:hover {
+  color: #b71c1c;
+}
+

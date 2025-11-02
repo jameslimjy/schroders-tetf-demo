@@ -38,21 +38,25 @@ export function useBlockchain() {
     }
 
     connect();
+  }, []);
+
+  // Set up block listener for real-time updates when provider becomes available
+  // This must be in a separate useEffect because provider is set asynchronously
+  useEffect(() => {
+    if (!provider) return;
 
     // Set up block listener for real-time updates
-    let blockListener = null;
-    if (provider) {
-      blockListener = provider.on('block', (blockNum) => {
-        setBlockNumber(blockNum);
-      });
-    }
+    const blockListener = provider.on('block', (blockNum) => {
+      setBlockNumber(blockNum);
+    });
 
+    // Cleanup function to remove listener when provider changes or component unmounts
     return () => {
-      if (blockListener) {
+      if (provider && blockListener) {
         provider.off('block', blockListener);
       }
     };
-  }, []);
+  }, [provider]);
 
   /**
    * Get a signer for a specific address (for Anvil local development)
