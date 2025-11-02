@@ -12,7 +12,7 @@ import { useBlockchain } from '../hooks/useBlockchain';
 import { useToastContext } from '../contexts/ToastContext';
 import { parseTokenAmount, formatTokenAmount, waitForTransaction } from '../utils/contractHelpers';
 import { TES3_PRICE, ACCOUNTS, UNIQUE_ID_TO_OWNER_ID } from '../utils/constants';
-import { createETF } from '../utils/api';
+import { createETF, tokenizeSecurity } from '../utils/api';
 import './ActionPanel.css';
 
 /**
@@ -674,6 +674,13 @@ function DCDPActionsContent() {
   const [loading, setLoading] = useState(false);
 
   // Tokenize securities
+  // This converts traditional securities (ES3 ETF) into tokenized tokens (TES3)
+  // Steps:
+  // 1. Check CDP registry for sufficient balance
+  // 2. Decrease CDP registry balance (offchain)
+  // 3. Mint TES3 tokens onchain via dCDP contract
+  // 4. Transaction appears in Block Explorer automatically
+  // 5. TES3 tokens appear in dCDP Registry automatically
   const handleTokenize = async () => {
     setLoading(true);
 
@@ -682,19 +689,61 @@ function DCDPActionsContent() {
         throw new Error('Provider not connected');
       }
 
-      const quantity = parseTokenAmount(tokenizeQuantity);
+      // Map unique identifier (SN code) to owner ID
+      // User inputs unique identifier (e.g., SN91X81J21), but contract needs owner ID (e.g., AP)
+      const ownerId = UNIQUE_ID_TO_OWNER_ID[tokenizeOwnerId.toUpperCase()] || tokenizeOwnerId;
       
-      // Get admin signer (Account #0)
+      // Parse quantity to wei (18 decimals) for blockchain transaction
+      const quantity = parseTokenAmount(tokenizeQuantity);
+      // Parse quantity as number for CDP registry (regular number, not wei)
+      const quantityNumber = parseFloat(tokenizeQuantity);
+      
+      if (isNaN(quantityNumber) || quantityNumber <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Step 1: Check CDP registry and decrease balance (offchain)
+      // This validates that AP has sufficient ES3 shares and decreases the balance
+      console.log(`[Tokenize] Checking CDP registry for ${quantityNumber} ${tokenizeSymbol} for ${ownerId}...`);
+      await tokenizeSecurity(ownerId, quantityNumber, tokenizeSymbol);
+      console.log(`[Tokenize] CDP registry updated: ${quantityNumber} ${tokenizeSymbol} deducted`);
+      
+      // Step 2: Mint TES3 tokens onchain via dCDP contract
+      // Get admin signer (Account #0) - admin has permission to call tokenize
       const adminSigner = getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.tokenize() function
-      // Note: This assumes offchain CDP registry validation has occurred
-      const tx = await dcdp.tokenize(tokenizeOwnerId, quantity, tokenizeSymbol);
+      // Call dCDP.tokenize() function with owner ID (not unique identifier)
+      // This mints TES3 tokens to the owner's registered wallet address
+      console.log(`[Tokenize] Calling dCDP.tokenize(${ownerId}, ${quantity.toString()}, ${tokenizeSymbol})...`);
+      const tx = await dcdp.tokenize(ownerId, quantity, tokenizeSymbol);
+      console.log(`[Tokenize] Transaction submitted: ${tx.hash}`);
+      
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
+      console.log(`[Tokenize] Transaction confirmed!`);
       
-      showSuccess(`Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} for ${tokenizeOwnerId}`);
+      // Show success message
+      showSuccess(
+        `Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} tokenized. ` +
+        `Minted ${tokenizeQuantity} TES3 tokens to ${ownerId}. ` +
+        `Transaction: ${tx.hash.slice(0, 10)}...`
+      );
+      
+      // Trigger custom event to refresh CDP Registry component
+      // This ensures the registry updates immediately to show decreased balance
+      window.dispatchEvent(new CustomEvent('cdp-registry-updated'));
+      
+      // Trigger network visualizer animation for tokenization
+      // This creates a glow effect and particle animation: AP → CDP → dCDP
+      window.dispatchEvent(new CustomEvent('tokenize-executed', { 
+        detail: { 
+          quantity, 
+          symbol: tokenizeSymbol,
+          ownerId
+        } 
+      }));
+      
     } catch (err) {
       console.error('Tokenize error:', err);
       showError(err.message || 'Failed to tokenize');

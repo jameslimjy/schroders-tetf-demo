@@ -4,7 +4,7 @@
  * Uses SVG and Framer Motion for animations
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBlockchain } from '../hooks/useBlockchain';
 import './NetworkVisualizer.css';
@@ -100,6 +100,16 @@ function NetworkVisualizer({ animationTrigger }) {
   const svgRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 1000, height: 700 }); // Increased default size for better spacing
   const lastTriggerRef = useRef(null); // Track last animation trigger to avoid duplicates
+  
+  // Refs to store latest functions for event listeners (prevents stale closures)
+  const createParticleRef = useRef(null);
+  const playTokenizeAnimationRef = useRef(null);
+
+  // Update refs when functions change (ensures event listeners use latest versions)
+  useEffect(() => {
+    createParticleRef.current = createParticle;
+    playTokenizeAnimationRef.current = playTokenizeAnimation;
+  }, [dimensions]); // Update when dimensions change to ensure correct coordinates
 
   // Update dimensions on resize with throttling to prevent excessive re-renders
   // Throttle resize events to max once per 100ms for better performance
@@ -189,25 +199,41 @@ function NetworkVisualizer({ animationTrigger }) {
   // Uses connection points (edges) for more natural flow visualization
   // Creates multiple particles for a trail effect with neon glow
   // Supports color interpolation from startColor to endColor
-  const createParticle = (fromNode, toNode, startColor = '#1976d2', endColor = null, type = 'default') => {
+  // Wrapped in useCallback to ensure it always uses latest dimensions
+  const createParticle = useCallback((fromNode, toNode, startColor = '#1976d2', endColor = null, type = 'default') => {
     // Use endColor if provided, otherwise use startColor (no color change)
     const finalEndColor = endColor || startColor;
     
     // Use connection points for natural flow visualization
-    // Fallback to centers if connection points aren't available yet
+    // Calculate connection points dynamically based on current node positions
     let from, to;
     try {
       const points = getConnectionPoint(fromNode, toNode);
       from = points.from;
       to = points.to;
+      
+      // Validate coordinates are numbers (not NaN or undefined)
+      if (isNaN(from.x) || isNaN(from.y) || isNaN(to.x) || isNaN(to.y)) {
+        throw new Error('Invalid coordinates from getConnectionPoint');
+      }
     } catch (e) {
+      console.warn(`[NetworkVisualizer] Failed to get connection points for ${fromNode} → ${toNode}, using centers:`, e);
       // Fallback to center positions if getConnectionPoint not available
-      from = toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y);
-      to = toPixels(NODE_POSITIONS[toNode].x, NODE_POSITIONS[toNode].y);
+      const fromPos = NODE_POSITIONS[fromNode];
+      const toPos = NODE_POSITIONS[toNode];
+      if (fromPos && toPos) {
+        from = toPixels(fromPos.x, fromPos.y);
+        to = toPixels(toPos.x, toPos.y);
+      } else {
+        console.error(`[NetworkVisualizer] Invalid node positions for ${fromNode} or ${toNode}`);
+        return; // Don't create particle if we can't get valid coordinates
+      }
     }
 
     // Create multiple particles for a neon trail effect
-    // Main particle (larger, brighter) - reduced to size 1
+    // Main particle (larger, brighter)
+    // Enhanced particle size for tokenize and cash flows (better visibility)
+    const baseSize = (type === 'tokenize' || type === 'cash' || type === 'stablecoin') ? 2 : 1; // Larger size for enhanced animations
     const mainParticle = {
       id: `main-${Date.now()}-${Math.random()}`,
       from,
@@ -215,14 +241,17 @@ function NetworkVisualizer({ animationTrigger }) {
       startColor, // Starting color
       endColor: finalEndColor, // Ending color for interpolation
       type,
-      size: 1, // Reduced to size 1
+      size: baseSize, // Size based on type
       glow: true, // Apply neon glow filter
       delay: 0,
     };
 
-    // Trail particles (smaller, trailing behind) - proportionally smaller than main
+    // Trail particles (smaller, trailing behind)
     const trailParticles = [];
-    for (let i = 0; i < 5; i++) {
+    // Enhanced animations (tokenize, cash, stablecoin) get more trail particles
+    const enhancedTypes = ['tokenize', 'cash', 'stablecoin'];
+    const trailCount = enhancedTypes.includes(type) ? 6 : 5; // More trail particles for enhanced animations
+    for (let i = 0; i < trailCount; i++) {
       trailParticles.push({
         id: `trail-${Date.now()}-${Math.random()}-${i}`,
         from,
@@ -230,15 +259,22 @@ function NetworkVisualizer({ animationTrigger }) {
         startColor, // Starting color
         endColor: finalEndColor, // Ending color for interpolation
         type,
-        size: 0.7 - i * 0.1, // Decreasing size: 0.7, 0.6, 0.5, 0.4, 0.3
-        glow: i < 2, // Only first two trail particles have glow
+        size: baseSize * (0.7 - i * 0.1), // Decreasing size based on baseSize
+        glow: enhancedTypes.includes(type) ? i < 3 : i < 2, // More trail particles have glow for enhanced animations
         delay: i * 50, // Reduced delay for 2x speed (was i * 100)
-        opacity: 0.8 - i * 0.15, // Decreasing opacity
+        opacity: 0.8 - i * 0.12, // Decreasing opacity
       });
     }
 
     // Add all particles
-    setParticles((prev) => [...prev, mainParticle, ...trailParticles]);
+    setParticles((prev) => {
+      const newParticles = [...prev, mainParticle, ...trailParticles];
+      if (type === 'tokenize') {
+        console.log(`[NetworkVisualizer] Added ${1 + trailParticles.length} particles. Total particles: ${newParticles.length}`);
+        console.log(`[NetworkVisualizer] Particle from: (${from.x}, ${from.y}), to: (${to.x}, ${to.y})`);
+      }
+      return newParticles;
+    });
 
     // Remove particles after animation completes - reduced timeout for 2x speed
     setTimeout(() => {
@@ -246,7 +282,7 @@ function NetworkVisualizer({ animationTrigger }) {
         p.id !== mainParticle.id && !trailParticles.some(tp => tp.id === p.id)
       ));
     }, 1250); // Reduced from 2500 to 1250 for 2x speed
-  };
+  }, [dimensions]); // Update when dimensions change to use latest coordinate calculations
 
   // Animation sequence for onramp cash flow with enhanced neon effects
   // Shows cash flow: Thomas → Digital Exchange → Stablecoin Provider
@@ -258,19 +294,19 @@ function NetworkVisualizer({ animationTrigger }) {
 
     // Step 2: Cash flow animation with color gradient
     // Create multiple particle bursts for more flashy effect
-    // Thomas to Digital Exchange - green to orange gradient
+    // Thomas to Digital Exchange - bright blue to bright purple gradient (same as tokenize)
     setTimeout(() => {
-      createParticle('thomas', 'digitalExchange', '#00ff00', '#ff6b35', 'cash'); // Green to orange
+      createParticle('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'); // Bright blue to bright purple
       // Additional burst particles for more flash - reduced delays for 2x speed
-      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00ff00', '#ffaa00', 'cash'), 25); // Was 50
-      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00ff00', '#ff9500', 'cash'), 50); // Was 100
+      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 25); // Was 50
+      setTimeout(() => createParticle('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 50); // Was 100
     }, 150); // Reduced from 300 to 150 for 2x speed
 
-    // Digital Exchange to Stablecoin Provider (cash flow continues) - orange maintained
+    // Digital Exchange to Stablecoin Provider (cash flow continues) - bright purple maintained
     setTimeout(() => {
-      createParticle('digitalExchange', 'stablecoinProvider', '#ff6b35', '#ff6b35', 'cash'); // Orange to orange
-      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#ffaa00', '#ffaa00', 'cash'), 25); // Was 50
-      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#ff9500', '#ff9500', 'cash'), 50); // Was 100
+      createParticle('digitalExchange', 'stablecoinProvider', '#aa55ff', '#aa55ff', 'cash'); // Bright purple to bright purple
+      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#aa55ff', '#aa55ff', 'cash'), 25); // Was 50
+      setTimeout(() => createParticle('digitalExchange', 'stablecoinProvider', '#aa55ff', '#aa55ff', 'cash'), 50); // Was 100
     }, 500); // Reduced from 1000 to 500 for 2x speed
 
     // Step 3: Make Digital Exchange glow with neon effect when cash arrives
@@ -291,19 +327,19 @@ function NetworkVisualizer({ animationTrigger }) {
       });
     }, 1000); // Reduced from 2000 to 1000 for 2x speed
 
-    // Step 5: Stablecoin flow (reverse direction) with orange to green gradient
-    // Stablecoin Provider to Digital Exchange - orange to green
+    // Step 5: Stablecoin flow (reverse direction) with bright purple to bright blue gradient
+    // Stablecoin Provider to Digital Exchange - bright purple to bright blue (same as tokenize)
     setTimeout(() => {
-      createParticle('stablecoinProvider', 'digitalExchange', '#ff6b35', '#00ff00', 'stablecoin'); // Orange to green
-      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#ffaa00', '#00ff00', 'stablecoin'), 25); // Was 50
-      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#ff9500', '#00ff00', 'stablecoin'), 50); // Was 100
+      createParticle('stablecoinProvider', 'digitalExchange', '#aa55ff', '#00aaff', 'stablecoin'); // Bright purple to bright blue
+      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#aa55ff', '#00aaff', 'stablecoin'), 25); // Was 50
+      setTimeout(() => createParticle('stablecoinProvider', 'digitalExchange', '#aa55ff', '#00aaff', 'stablecoin'), 50); // Was 100
     }, 1500); // Reduced from 3000 to 1500 for 2x speed
 
-    // Digital Exchange to Thomas (stablecoin flow continues) - green maintained
+    // Digital Exchange to Thomas (stablecoin flow continues) - bright blue maintained
     setTimeout(() => {
-      createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'); // Green to green
-      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'), 25); // Was 50
-      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00ff00', '#00ff00', 'stablecoin'), 50); // Was 100
+      createParticle('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'stablecoin'); // Bright blue to bright blue
+      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'stablecoin'), 25); // Was 50
+      setTimeout(() => createParticle('digitalExchange', 'thomas', '#00aaff', '#00aaff', 'stablecoin'), 50); // Was 100
     }, 1850); // Reduced from 3700 to 1850 for 2x speed
 
     // Step 6: Remove glows after animation completes
@@ -344,6 +380,58 @@ function NetworkVisualizer({ animationTrigger }) {
     }, 2500); // 2.5 second animation duration
   };
 
+  // Animation sequence for Tokenize operation
+  // Shows the flow: AP → CDP → dCDP (tokenization process)
+  // Sequence:
+  // 1. AP block glows first
+  // 2. 0.2 seconds later, CDP block glows and particle travels from CDP to dCDP
+  // 3. After particle reaches dCDP, dCDP block glows
+  const playTokenizeAnimation = () => {
+    // Step 1: Make AP glow with neon effect (AP initiates tokenization)
+    setActiveNodes((prev) => new Set(prev).add('ap'));
+
+    // Step 2: After 0.2 seconds, make CDP glow and create particle animation
+    // Use same pattern as onramp animation for consistency
+    setTimeout(() => {
+      // Make CDP glow
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('cdp');
+        return next;
+      });
+
+      // Create particle animation from CDP to dCDP
+      // Use bright blue/purple colors for better visibility (similar to onramp green/orange)
+      // Use ref to ensure we have the latest createParticle function with current dimensions
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('cdp', 'dcdp', '#00aaff', '#aa55ff', 'tokenize'); // Bright blue to bright purple
+      // Additional burst particles for more visual impact - same timing as onramp
+      setTimeout(() => createParticleFn('cdp', 'dcdp', '#00aaff', '#aa55ff', 'tokenize'), 25);
+      setTimeout(() => createParticleFn('cdp', 'dcdp', '#00aaff', '#aa55ff', 'tokenize'), 50);
+    }, 200); // 0.2 seconds delay
+
+    // Step 3: After particle animation reaches dCDP (approximately 1 second for particle to travel)
+    // Make dCDP glow when tokens are minted
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('dcdp');
+        return next;
+      });
+    }, 1200); // 200ms (initial delay) + 1000ms (particle travel time) = 1200ms
+
+    // Step 4: Remove all glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('ap');
+        next.delete('cdp');
+        next.delete('dcdp');
+        return next;
+      });
+    }, 3500); // Total animation duration: ~3.5 seconds
+  };
+
   // Watch for animation trigger changes
   useEffect(() => {
     if (animationTrigger && animationTrigger.type === 'onramp') {
@@ -369,6 +457,23 @@ function NetworkVisualizer({ animationTrigger }) {
     };
   }, []);
 
+  // Listen for Tokenize events to trigger AP → CDP → dCDP animation
+  useEffect(() => {
+    const handleTokenize = () => {
+      console.log('[NetworkVisualizer] Tokenize event received, playing animation...');
+      // Use ref to get latest function (ensures it has access to current dimensions)
+      if (playTokenizeAnimationRef.current) {
+        playTokenizeAnimationRef.current();
+      }
+    };
+
+    window.addEventListener('tokenize-executed', handleTokenize);
+
+    return () => {
+      window.removeEventListener('tokenize-executed', handleTokenize);
+    };
+  }, []); // Empty dependencies - event listener setup only once
+
   // Helper function to get rectangle bounds for connection points
   const getNodeBounds = (nodeId, position) => {
     const config = NODE_CONFIG[nodeId];
@@ -388,11 +493,23 @@ function NetworkVisualizer({ animationTrigger }) {
 
   // Helper function to get connection point between two nodes
   // Returns the edge point where a particle should start/end for natural flow
+  // This function is recreated on each render to ensure it uses current dimensions
   const getConnectionPoint = (fromNode, toNode) => {
+    // Ensure dimensions are available before calculating
+    if (!dimensions || dimensions.width === 0 || dimensions.height === 0) {
+      console.warn('[NetworkVisualizer] Dimensions not ready, using fallback coordinates');
+      // Fallback to center positions
+      return {
+        from: toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y),
+        to: toPixels(NODE_POSITIONS[toNode].x, NODE_POSITIONS[toNode].y),
+      };
+    }
+
     const fromBounds = getNodeBounds(fromNode, NODE_POSITIONS[fromNode]);
     const toBounds = getNodeBounds(toNode, NODE_POSITIONS[toNode]);
     
     if (!fromBounds || !toBounds) {
+      console.warn(`[NetworkVisualizer] Could not get bounds for ${fromNode} or ${toNode}`);
       // Fallback to center if bounds not available
       return {
         from: toPixels(NODE_POSITIONS[fromNode].x, NODE_POSITIONS[fromNode].y),
@@ -599,6 +716,10 @@ function NetworkVisualizer({ animationTrigger }) {
   // Particle sizes reduced - main particle is 1, trails are smaller
   // Colors interpolate from startColor to endColor during animation
   const renderParticles = () => {
+    const tokenizeParticles = particles.filter(p => p.type === 'tokenize');
+    if (tokenizeParticles.length > 0) {
+      console.log(`[NetworkVisualizer] Rendering ${tokenizeParticles.length} tokenize particles out of ${particles.length} total`);
+    }
     return particles.map((particle) => {
       const size = particle.size || 1; // Default size set to 1 (matching main particle)
       const opacity = particle.opacity !== undefined ? particle.opacity : 1;

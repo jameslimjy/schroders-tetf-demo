@@ -280,10 +280,11 @@ function CDPRegistry() {
         <motion.div
           key={animationKey}
           className="cdp-registry-content"
-          initial={{ opacity: 0, x: -20, backgroundColor: '#e8f5e9' }}
-          animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
+          style={{ backgroundColor: animationKey % 2 === 0 ? 'transparent' : '#e8f5e9' }}
         >
           {sortedAccounts.map(([accountId, accountData]) => {
             const uniqueId = ownerIds[accountId];
