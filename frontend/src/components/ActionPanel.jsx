@@ -1,7 +1,7 @@
 /**
  * Action Panel Component
  * Contains action buttons for different stakeholders
- * Supports Thomas Actions, dCDP Actions, and AP Actions
+ * Supports Thomas Actions, Tokenized Depository Actions, and AP Actions
  */
 
 /* eslint-env es2020 */
@@ -10,8 +10,9 @@ import { ethers } from 'ethers';
 import { useContracts } from '../hooks/useContracts';
 import { useBlockchain } from '../hooks/useBlockchain';
 import { useToastContext } from '../contexts/ToastContext';
+import { useDatePrice } from '../contexts/DatePriceContext';
 import { parseTokenAmount, formatTokenAmount, waitForTransaction } from '../utils/contractHelpers';
-import { TES3_PRICE, ACCOUNTS, UNIQUE_ID_TO_OWNER_ID } from '../utils/constants';
+import { ACCOUNTS, UNIQUE_ID_TO_OWNER_ID } from '../utils/constants';
 import { createETF, tokenizeSecurity } from '../utils/api';
 import './ActionPanel.css';
 
@@ -22,6 +23,7 @@ import './ActionPanel.css';
 export function ThomasActions() {
   const { contracts, getContractWithSigner, getBalance } = useContracts();
   const { provider, getSigner } = useBlockchain();
+  const { getCurrentPrice } = useDatePrice();
   const [onrampAmount, setOnrampAmount] = useState('1000');
   const [buyQuantity, setBuyQuantity] = useState('5.5');
   const [sellQuantity, setSellQuantity] = useState('3');
@@ -75,7 +77,8 @@ export function ThomasActions() {
       }
 
       const quantity = parseTokenAmount(buyQuantity);
-      const cost = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+      const tes3Price = getCurrentPrice();
+      const cost = (BigInt(quantity) * BigInt(tes3Price)) / BigInt(10 ** 18);
 
       // Check if Thomas has sufficient SGDC balance
       const thomasBalance = await getBalance('sgdc', ACCOUNTS.THOMAS);
@@ -133,7 +136,8 @@ export function ThomasActions() {
       }
 
       const quantity = parseTokenAmount(sellQuantity);
-      const proceeds = (BigInt(quantity) * BigInt(TES3_PRICE)) / BigInt(10 ** 18);
+      const tes3Price = getCurrentPrice();
+      const proceeds = (BigInt(quantity) * BigInt(tes3Price)) / BigInt(10 ** 18);
 
       // Check if Thomas has sufficient TES3 balance
       const thomasBalance = await getBalance('tes3', ACCOUNTS.THOMAS);
@@ -232,7 +236,7 @@ export function ThomasActions() {
 }
 
 /**
- * dCDP Actions Panel
+ * Tokenized Depository Actions Panel
  * Actions: Tokenize, Create Wallet
  */
 export function DCDPActions() {
@@ -271,8 +275,8 @@ export function DCDPActions() {
       const adminSigner = getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.tokenize() function with owner ID (not unique identifier)
-      // Note: This assumes offchain CDP registry validation has occurred
+      // Call Tokenized Depository.tokenize() function with owner ID (not unique identifier)
+      // Note: This assumes offchain Depository registry validation has occurred
       const tx = await dcdp.tokenize(ownerId, quantity, tokenizeSymbol);
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
@@ -319,7 +323,7 @@ export function DCDPActions() {
       const adminSigner = await provider.getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.createWallet() function with owner ID (not unique identifier)
+      // Call Tokenized Depository.createWallet() function with owner ID (not unique identifier)
       const tx = await dcdp.createWallet(ownerId, newAddress);
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
@@ -335,7 +339,7 @@ export function DCDPActions() {
 
   return (
     <div className="action-panel">
-      <h4>dCDP Actions</h4>
+          <h4>Tokenized Depository Actions</h4>
       
       <div className="action-group">
         <label>Owner ID</label>
@@ -386,7 +390,7 @@ export function DCDPActions() {
 /**
  * Combined Actions Panel
  * Combines all three stakeholder action sections into a single panel
- * Sections: Thomas, dCDP, AP
+ * Sections: Thomas, Tokenized Depository, AP
  */
 export function CombinedActions({ onOnrampSuccess }) {
   const LOGO_BASE_PATH = '/assets/logos/';
@@ -412,16 +416,16 @@ export function CombinedActions({ onOnrampSuccess }) {
         <ThomasActionsContent onOnrampSuccess={onOnrampSuccess} />
       </div>
 
-      {/* dCDP Section */}
+      {/* Tokenized Depository Section */}
       <div className="action-section action-section-dcdp">
         <div className="action-section-header">
           <img 
             src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
-            alt="dCDP" 
+            alt="Tokenized Depository" 
             className="action-section-logo"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
-          <h4>dCDP</h4>
+          <h4>Tokenized Depository</h4>
         </div>
         <DCDPActionsContent />
       </div>
@@ -451,6 +455,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const { contracts, getContractWithSigner, getBalance } = useContracts();
   const { provider, getSigner } = useBlockchain();
   const { showSuccess, showError } = useToastContext();
+  const { getCurrentPrice } = useDatePrice();
   const [onrampAmount, setOnrampAmount] = useState('1000');
   const [buyQuantity, setBuyQuantity] = useState('2.5');
   const [buyContractAddress, setBuyContractAddress] = useState('');
@@ -494,7 +499,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   };
 
   // Buy tokenized asset
-  // Rate: 100:1 (e.g., 2.5 TES3 = 250 SGDC)
+  // Uses current dynamic TES3 price from context
   // Transfers: TES3 from AP to Thomas, SGDC from Thomas to AP
   const handleBuy = async () => {
     setLoading(true);
@@ -517,13 +522,15 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Quantity must be a positive number');
       }
 
-      // Calculate SGDC cost using 100:1 rate
-      // If quantity is 2.5 TES3, cost is 250 SGDC
-      const sgdcCost = parseTokenAmount((quantityNumber * 100).toString());
+      // Calculate SGDC cost using current dynamic price
+      // Get current price in wei (18 decimals)
+      const tes3Price = getCurrentPrice();
+      // Calculate: (quantity * price) / 10^18
+      const sgdcCost = (BigInt(quantity) * BigInt(tes3Price)) / BigInt(10 ** 18);
 
       // Check if Thomas has sufficient SGDC balance
       const thomasBalance = await getBalance('sgdc', ACCOUNTS.THOMAS);
-      if (BigInt(thomasBalance) < BigInt(sgdcCost)) {
+      if (BigInt(thomasBalance) < sgdcCost) {
         throw new Error(`Insufficient SGDC balance. Need ${formatTokenAmount(sgdcCost)}, have ${formatTokenAmount(thomasBalance)}`);
       }
 
@@ -645,10 +652,10 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       
       showSuccess(`Buy successful: ${buyQuantity} tokens for ${formatTokenAmount(sgdcCost)} SGDC`);
       
-      // Trigger dCDP Registry refresh to show updated balances with phase in/out animation
-      window.dispatchEvent(new CustomEvent('dcdp-registry-updated'));
+      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
+      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
       
-      // Trigger network visualizer animation: Thomas → Digital Exchange → dCDP, then reverse
+      // Trigger network visualizer animation: Thomas → Digital Exchange → Tokenized Depository, then reverse
       window.dispatchEvent(new CustomEvent('buy-asset-executed', {
         detail: {
           quantity: buyQuantity,
@@ -665,7 +672,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   };
 
   // Sell tokenized asset
-  // Rate: 100:1 (e.g., 1.3 TES3 = 130 SGDC)
+  // Uses current dynamic TES3 price from context
   // Transfers: TES3 from Thomas to AP, SGDC from AP to Thomas
   const handleSell = async () => {
     setLoading(true);
@@ -688,9 +695,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Quantity must be a positive number');
       }
 
-      // Calculate SGDC proceeds using 100:1 rate
-      // If quantity is 1.3 TES3, proceeds is 130 SGDC
-      const sgdcProceeds = parseTokenAmount((quantityNumber * 100).toString());
+      // Calculate SGDC proceeds using current dynamic price
+      // Get current price in wei (18 decimals)
+      const tes3Price = getCurrentPrice();
+      // Calculate: (quantity * price) / 10^18
+      const sgdcProceeds = (BigInt(quantity) * BigInt(tes3Price)) / BigInt(10 ** 18);
 
       // Get the token contract using the provided contract address
       const tokenContract = new ethers.Contract(
@@ -712,7 +721,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
 
       // Check if AP has sufficient SGDC balance
       const apSgdcBalance = await getBalance('sgdc', ACCOUNTS.AP);
-      if (BigInt(apSgdcBalance) < BigInt(sgdcProceeds)) {
+      if (BigInt(apSgdcBalance) < sgdcProceeds) {
         throw new Error(`AP has insufficient SGDC. Need ${formatTokenAmount(sgdcProceeds)}, AP has ${formatTokenAmount(apSgdcBalance)}`);
       }
 
@@ -834,10 +843,10 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       
       showSuccess(`Sell successful: ${sellQuantity} tokens for ${formatTokenAmount(sgdcProceeds)} SGDC`);
       
-      // Trigger dCDP Registry refresh to show updated balances with phase in/out animation
-      window.dispatchEvent(new CustomEvent('dcdp-registry-updated'));
+      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
+      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
       
-      // Trigger network visualizer animation: Thomas → Digital Exchange → dCDP, then reverse (same as buy)
+      // Trigger network visualizer animation: Thomas → Digital Exchange → Tokenized Depository, then reverse (same as buy)
       window.dispatchEvent(new CustomEvent('buy-asset-executed', {
         detail: {
           quantity: sellQuantity,
@@ -925,7 +934,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
 }
 
 /**
- * dCDP Actions Content (extracted for reuse)
+ * Tokenized Depository Actions Content (extracted for reuse)
  */
 function DCDPActionsContent() {
   const { contracts, getContractWithSigner } = useContracts();
@@ -959,27 +968,27 @@ function DCDPActionsContent() {
       
       // Parse quantity to wei (18 decimals) for blockchain transaction
       const quantity = parseTokenAmount(tokenizeQuantity);
-      // Parse quantity as number for CDP registry (regular number, not wei)
+      // Parse quantity as number for Depository registry (regular number, not wei)
       const quantityNumber = parseFloat(tokenizeQuantity);
       
       if (isNaN(quantityNumber) || quantityNumber <= 0) {
         throw new Error('Quantity must be a positive number');
       }
 
-      // Step 1: Check CDP registry and decrease balance (offchain)
+      // Step 1: Check Depository registry and decrease balance (offchain)
       // This validates that AP has sufficient ES3 shares and decreases the balance
-      console.log(`[Tokenize] Checking CDP registry for ${quantityNumber} ${tokenizeSymbol} for ${ownerId}...`);
+      console.log(`[Tokenize] Checking Depository registry for ${quantityNumber} ${tokenizeSymbol} for ${ownerId}...`);
       await tokenizeSecurity(ownerId, quantityNumber, tokenizeSymbol);
-      console.log(`[Tokenize] CDP registry updated: ${quantityNumber} ${tokenizeSymbol} deducted`);
+      console.log(`[Tokenize] Depository registry updated: ${quantityNumber} ${tokenizeSymbol} deducted`);
       
-      // Step 2: Mint TES3 tokens onchain via dCDP contract
+      // Step 2: Mint TES3 tokens onchain via Tokenized Depository contract
       // Get admin signer (Account #0) - admin has permission to call tokenize
       const adminSigner = getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.tokenize() function with owner ID (not unique identifier)
+      // Call Tokenized Depository.tokenize() function with owner ID (not unique identifier)
       // This mints TES3 tokens to the owner's registered wallet address
-      console.log(`[Tokenize] Calling dCDP.tokenize(${ownerId}, ${quantity.toString()}, ${tokenizeSymbol})...`);
+      console.log(`[Tokenize] Calling Tokenized Depository.tokenize(${ownerId}, ${quantity.toString()}, ${tokenizeSymbol})...`);
       const tx = await dcdp.tokenize(ownerId, quantity, tokenizeSymbol);
       console.log(`[Tokenize] Transaction submitted: ${tx.hash}`);
       
@@ -994,12 +1003,12 @@ function DCDPActionsContent() {
         `Transaction: ${tx.hash.slice(0, 10)}...`
       );
       
-      // Trigger custom event to refresh CDP Registry component
+      // Trigger custom event to refresh Depository Registry component
       // This ensures the registry updates immediately to show decreased balance
-      window.dispatchEvent(new CustomEvent('cdp-registry-updated'));
+      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
       
       // Trigger network visualizer animation for tokenization
-      // This creates a glow effect and particle animation: AP → CDP → dCDP
+      // This creates a glow effect and particle animation: AP → Depository → Tokenized Depository
       window.dispatchEvent(new CustomEvent('tokenize-executed', { 
         detail: { 
           quantity, 
@@ -1051,7 +1060,7 @@ function DCDPActionsContent() {
       const adminSigner = await provider.getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
-      // Call dCDP.createWallet() function with owner ID (not unique identifier)
+      // Call Tokenized Depository.createWallet() function with owner ID (not unique identifier)
       console.log('[ActionPanel] Calling createWallet with ownerId:', ownerId, 'address:', newAddress);
       const tx = await dcdp.createWallet(ownerId, newAddress);
       // Wait for transaction with timeout to prevent indefinite hanging
@@ -1129,7 +1138,7 @@ function APActionsContent() {
 
   // Create ETF (offchain operation)
   // This creates ETF shares by deducting underlying stocks according to ETF composition
-  // Updates CDP registry stored in localStorage and triggers refresh event
+  // Updates Depository registry stored in localStorage and triggers refresh event
   const handleCreateETF = async () => {
     setLoading(true);
 
@@ -1151,12 +1160,12 @@ function APActionsContent() {
         `New balance: ${result.newETFBalance}`
       );
       
-      // Trigger custom event to refresh CDP Registry component
+      // Trigger custom event to refresh Depository Registry component
       // This ensures the registry updates immediately without waiting for polling
-      window.dispatchEvent(new CustomEvent('cdp-registry-updated'));
+      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
       
-      // Trigger network visualizer animation for CDP and AP nodes
-      // This creates a glow effect around CDP and AP blocks to show ETF creation
+      // Trigger network visualizer animation for Depository and AP nodes
+      // This creates a glow effect around Depository and AP blocks to show ETF creation
       window.dispatchEvent(new CustomEvent('etf-created', { 
         detail: { 
           quantity, 
@@ -1223,7 +1232,7 @@ export function APActions() {
     setLoading(true);
 
     try {
-      // This is an offchain operation that updates CDP registry JSON
+      // This is an offchain operation that updates Depository registry JSON
       // Call backend script endpoint or API
       const response = await fetch('/api/create-etf', {
         method: 'POST',
@@ -1250,8 +1259,8 @@ export function APActions() {
       setSuccess(`ETF creation successful: ${etfQuantity} ${etfSymbol} shares created`);
     } catch (err) {
       console.error('Create ETF error:', err);
-      // For demo purposes, show success even if API fails (CDP registry updates happen via backend scripts)
-      setSuccess(`ETF creation initiated: ${etfQuantity} ${etfSymbol} shares (Note: Run backend script to update CDP registry)`);
+      // For demo purposes, show success even if API fails (Depository registry updates happen via backend scripts)
+      setSuccess(`ETF creation initiated: ${etfQuantity} ${etfSymbol} shares (Note: Run backend script to update Depository registry)`);
       // setError(err.message || 'Failed to create ETF');
     } finally {
       setLoading(false);

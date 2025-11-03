@@ -1,5 +1,5 @@
 /**
- * dCDP Registry Component
+ * Tokenized Depository Registry Component
  * Displays onchain tokenized securities balances
  * Queries smart contracts in real-time
  */
@@ -12,7 +12,7 @@ import { formatTokenAmount, shortenAddress } from '../utils/contractHelpers';
 import { ACCOUNTS, ADDRESS_SHORT_LENGTH } from '../utils/constants';
 import './dCDPRegistry.css';
 
-// Logo path for dCDP Registry
+// Logo path for Tokenized Depository Registry
 const LOGO_BASE_PATH = '/assets/logos/';
 
 // Helper function to check if an address is a contract address
@@ -97,28 +97,18 @@ function DCDPRegistry() {
         let thomasAddress;
         try {
           thomasAddress = await contracts.dcdp.ownerToAddress('THOMAS');
-          console.log('[DCDPRegistry] resolveAddresses - THOMAS address from ownerToAddress:', thomasAddress);
         } catch (e1) {
           // Fallback to getAddress if ownerToAddress doesn't work
           try {
             thomasAddress = await contracts.dcdp.getAddress('THOMAS');
-            console.log('[DCDPRegistry] resolveAddresses - THOMAS address from getAddress:', thomasAddress);
           } catch (e2) {
             console.error('[DCDPRegistry] resolveAddresses - Both ownerToAddress and getAddress failed:', e1, e2);
             throw e2;
           }
         }
         
-        console.log('[DCDPRegistry] resolveAddresses - THOMAS address type:', typeof thomasAddress);
-        console.log('[DCDPRegistry] resolveAddresses - THOMAS address value:', thomasAddress);
-        console.log('[DCDPRegistry] resolveAddresses - Is zero address?', thomasAddress === '0x0000000000000000000000000000000000000000' || thomasAddress === null || thomasAddress === undefined);
-        console.log('[DCDPRegistry] resolveAddresses - dCDP contract address:', contracts.dcdp.target);
-        console.log('[DCDPRegistry] resolveAddresses - contractAddresses.dCDP:', contractAddresses?.dCDP);
-        console.log('[DCDPRegistry] resolveAddresses - Addresses match?', thomasAddress?.toLowerCase() === contracts.dcdp.target?.toLowerCase());
-        
         // Check if it's a contract address
         const isContractAddr = isContractAddress(thomasAddress, contracts, contractAddresses);
-        console.log('[DCDPRegistry] resolveAddresses - Is contract address?', isContractAddr);
         
         // Only include THOMAS if wallet was created (non-zero address)
         // Also verify it's not a contract address
@@ -131,10 +121,8 @@ function DCDPRegistry() {
             thomasAddress.length === 42;
             
         if (isValidAddress && !isContractAddr) {
-          console.log('[DCDPRegistry] resolveAddresses - ✓ THOMAS wallet found! Adding to addresses:', thomasAddress);
           addresses.THOMAS = thomasAddress;
         } else {
-          console.log('[DCDPRegistry] resolveAddresses - ✗ THOMAS wallet not created or invalid');
           if (isContractAddr) {
             console.warn('[DCDPRegistry] resolveAddresses - THOMAS address matches contract address - wallet was NOT created successfully!');
             console.warn('[DCDPRegistry] resolveAddresses - This means createWallet() transaction may have failed or reverted');
@@ -147,7 +135,6 @@ function DCDPRegistry() {
         // Leave THOMAS out of addresses object
       }
 
-      console.log('[DCDPRegistry] Resolved addresses:', addresses);
       setAccountAddresses(addresses);
       return addresses; // Return addresses for promise chain
     } catch (err) {
@@ -176,26 +163,21 @@ function DCDPRegistry() {
       // Start with the current accountAddresses state
       const accountsToCheck = { ...accountAddresses };
       
-      console.log('[DCDPRegistry] Starting loadBalances with accountAddresses:', accountAddresses);
-      
       // Also check contract directly to ensure we have the latest state
       // This helps catch cases where state might be stale
       if (contracts.dcdp) {
         // Check AP's wallet
         try {
           const apAddress = await contracts.dcdp.getAddress('AP');
-          console.log('[DCDPRegistry] AP address from contract:', apAddress);
           
           // Verify the address is valid and not a contract address
           if (apAddress && 
               apAddress !== '0x0000000000000000000000000000000000000000' &&
               !isContractAddress(apAddress, contracts, contractAddresses)) {
             accountsToCheck.AP = apAddress;
-            console.log('[DCDPRegistry] Using AP address from contract:', apAddress);
           } else if (!accountsToCheck.AP) {
             // AP starts with default wallet address if not already set
             accountsToCheck.AP = ACCOUNTS.AP;
-            console.log('[DCDPRegistry] Using AP address from constants:', ACCOUNTS.AP);
           }
         } catch (e) {
           console.error('[DCDPRegistry] Error getting AP address:', e);
@@ -211,26 +193,19 @@ function DCDPRegistry() {
           let thomasAddress;
           try {
             thomasAddress = await contracts.dcdp.ownerToAddress('THOMAS');
-            console.log('[DCDPRegistry] loadBalances - THOMAS address from ownerToAddress:', thomasAddress);
           } catch (e1) {
             thomasAddress = await contracts.dcdp.getAddress('THOMAS');
-            console.log('[DCDPRegistry] loadBalances - THOMAS address from getAddress:', thomasAddress);
           }
           
-          console.log('[DCDPRegistry] loadBalances - THOMAS address:', thomasAddress);
-          console.log('[DCDPRegistry] loadBalances - Is zero address?', thomasAddress === '0x0000000000000000000000000000000000000000');
           const isContractAddr = isContractAddress(thomasAddress, contracts, contractAddresses);
-          console.log('[DCDPRegistry] loadBalances - Is contract address?', isContractAddr);
           
           // Only include THOMAS if wallet was created (non-zero address)
           // Also verify it's not a contract address
           if (thomasAddress && 
               thomasAddress !== '0x0000000000000000000000000000000000000000' &&
               !isContractAddr) {
-            console.log('[DCDPRegistry] loadBalances - ✓ THOMAS wallet found! Including with address:', thomasAddress);
             accountsToCheck.THOMAS = thomasAddress;
           } else {
-            console.log('[DCDPRegistry] loadBalances - ✗ THOMAS wallet not created yet (or invalid), excluding from display');
             // Remove THOMAS from accountsToCheck if it was there but wallet wasn't created
             delete accountsToCheck.THOMAS;
             if (isContractAddr) {
@@ -244,7 +219,6 @@ function DCDPRegistry() {
         }
       } else {
         // If contract not ready, only show AP with default address
-        console.log('[DCDPRegistry] Contract not ready, using AP address from constants:', ACCOUNTS.AP);
         accountsToCheck.AP = ACCOUNTS.AP;
         delete accountsToCheck.THOMAS;
       }
@@ -256,15 +230,12 @@ function DCDPRegistry() {
           if (name === 'AP') {
             // For AP, use the correct wallet address from constants
             accountsToCheck.AP = ACCOUNTS.AP;
-            console.log(`[DCDPRegistry] Replaced ${name} with correct wallet address: ${ACCOUNTS.AP}`);
           } else {
             // For others, remove them
             delete accountsToCheck[name];
           }
         }
       }
-      
-      console.log('[DCDPRegistry] Final accountsToCheck after safety checks:', accountsToCheck);
 
       // Always include AP with default address if contracts are ready
       // AP should always be shown from the start
@@ -272,7 +243,6 @@ function DCDPRegistry() {
         // Always include AP
         if (!accountsToCheck.AP) {
           accountsToCheck.AP = ACCOUNTS.AP;
-          console.log('[DCDPRegistry] Adding AP with default address:', ACCOUNTS.AP);
         }
         
         // DO NOT include THOMAS unless wallet was created in the contract
@@ -305,17 +275,11 @@ function DCDPRegistry() {
           continue;
         }
 
-        // Log before calling balanceOf to track what addresses are being used
-        console.log(`[DCDPRegistry] Loading balances for ${accountName} at ${address}`);
-        
         try {
           const [sgdcBalance, tes3Balance] = await Promise.all([
             getBalance('sgdc', address),
             getBalance('tes3', address),
           ]);
-
-          console.log(`[DCDPRegistry] ${accountName} balances - SGDC: ${sgdcBalance}, TES3: ${tes3Balance}`);
-          console.log(`[DCDPRegistry] ${accountName} formatted - SGDC: ${formatTokenAmount(sgdcBalance)}, TES3: ${formatTokenAmount(tes3Balance)}`);
 
           // Always include accounts with valid addresses, even if balances are zero
           newBalances[accountName] = {
@@ -422,8 +386,6 @@ function DCDPRegistry() {
     };
 
     const handleWalletCreated = (ownerId, walletAddress, event) => {
-      console.log('[DCDPRegistry] WalletCreated event received!', { ownerId, walletAddress });
-      
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -437,9 +399,7 @@ function DCDPRegistry() {
       // Use refs to get latest functions without dependency on them
       // Increase delay slightly to ensure blockchain state has propagated
       debounceTimerRef.current = setTimeout(async () => {
-        console.log('[DCDPRegistry] Refreshing addresses after wallet creation...');
         await resolveAddressesRef.current();
-        console.log('[DCDPRegistry] Addresses refreshed, now loading balances...');
         // Give a small delay for state to update before loading balances
         setTimeout(() => {
           loadBalancesRef.current();
@@ -511,10 +471,10 @@ function DCDPRegistry() {
       }, 500);
     };
     
-    window.addEventListener('dcdp-registry-updated', handleRegistryUpdate);
+    window.addEventListener('tokenized-depository-registry-updated', handleRegistryUpdate);
     
     return () => {
-      window.removeEventListener('dcdp-registry-updated', handleRegistryUpdate);
+      window.removeEventListener('tokenized-depository-registry-updated', handleRegistryUpdate);
     };
   }, []);
 
@@ -522,7 +482,6 @@ function DCDPRegistry() {
   const copyToClipboard = async (text, tokenName) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log(`[DCDPRegistry] Copied ${tokenName} address to clipboard: ${text}`);
       // You could add a toast notification here if desired
     } catch (err) {
       console.error(`[DCDPRegistry] Failed to copy ${tokenName} address:`, err);
@@ -535,7 +494,6 @@ function DCDPRegistry() {
       textArea.select();
       try {
         document.execCommand('copy');
-        console.log(`[DCDPRegistry] Copied ${tokenName} address using fallback method`);
       } catch (fallbackErr) {
         console.error(`[DCDPRegistry] Fallback copy failed:`, fallbackErr);
       }
@@ -669,11 +627,11 @@ function DCDPRegistry() {
         <div className="dcdp-registry-header">
           <img 
             src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
-            alt="dCDP" 
+            alt="Tokenized Depository" 
             className="dcdp-registry-logo"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
-          <h3>dCDP Registry</h3>
+          <h3>Tokenized Depository Registry</h3>
         </div>
         <div className="dcdp-loading">Loading...</div>
       </div>
@@ -685,11 +643,11 @@ function DCDPRegistry() {
       <div className="dcdp-registry-header">
         <img 
           src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
-          alt="dCDP" 
+          alt="Tokenized Depository" 
           className="dcdp-registry-logo"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        <h3>dCDP Registry</h3>
+        <h3>Tokenized Depository Registry</h3>
       </div>
       <AnimatePresence mode="wait">
         <motion.div

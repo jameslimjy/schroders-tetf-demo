@@ -28,12 +28,86 @@ body {
   color: white;
   padding: 12px 32px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.app-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-header-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  flex-shrink: 0;
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 26px;
   font-weight: 700;
+}
+
+/* Date and Price Display */
+.date-price-display {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  align-items: center;
+}
+
+.date-price-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.date-label,
+.price-label {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.date-value,
+.price-value {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.date-value-old,
+.price-value-old {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.date-price-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.date-price-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.date-price-toggle:active {
+  transform: translateY(0);
 }
 
 .app-subtitle {
@@ -74,7 +148,7 @@ body {
   flex: 1;
   display: grid;
   /* Layout: Three columns, two rows */
-  /* Column 1: CDP Registry (top) + dCDP Registry (bottom) */
+  /* Column 1: Depository Registry (top) + Tokenized Depository Registry (bottom) */
   /* Column 2: Network Visualizer (top) + Block Explorer (bottom, spans columns 1-2) */
   /* Column 3: Action Panels (spans rows 1-2) */
   grid-template-columns: 280px 1fr 320px;
@@ -95,7 +169,7 @@ body {
   flex-direction: column;
 }
 
-/* Left Column: CDP Registry and dCDP Registry stacked */
+/* Left Column: Depository Registry and Tokenized Depository Registry stacked */
 .app-section-left-registries {
   grid-column: 1;
   grid-row: 1 / 3; /* Span both rows */

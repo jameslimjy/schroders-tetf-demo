@@ -12,12 +12,23 @@ import DCDPRegistry from './components/dCDPRegistry';
 import { CombinedActions } from './components/ActionPanel';
 import { ToastContainer } from './components/Toast';
 import { ToastProvider, useToastContext } from './contexts/ToastContext';
+import { DatePriceProvider, useDatePrice } from './contexts/DatePriceContext';
 import { useBlockchain } from './hooks/useBlockchain';
 import './App.css';
 
 function AppContent() {
   const { error: blockchainError } = useBlockchain();
   const { toasts, removeToast } = useToastContext();
+  const { 
+    isFuture, 
+    toggleDatePrice, 
+    getCurrentDate, 
+    getFormattedPrice,
+    currentDate,
+    futureDate,
+    currentPrice,
+    futurePrice
+  } = useDatePrice();
   
   // State to trigger animations in NetworkVisualizer
   // When this changes, NetworkVisualizer will detect it and play the animation
@@ -29,22 +40,59 @@ function AppContent() {
     setAnimationTrigger({ type: 'onramp', timestamp: Date.now() });
   }, []);
 
+  // Format price for display
+  const formatPriceDisplay = (price) => {
+    const priceNum = parseFloat(price) / 1e18;
+    return `$${priceNum.toFixed(2)}`;
+  };
+
   return (
     <div className="app">
       {/* Toast notifications container */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <header className="app-header">
-        <h1>Schroders Tokenized ETF Demo</h1>
-        {blockchainError && (
-          <div className="app-error">
-            Blockchain Error: {blockchainError}
+        <div className="app-header-left">
+          <h1>Schroders Tokenized ETF Demo</h1>
+          {blockchainError && (
+            <div className="app-error">
+              Blockchain Error: {blockchainError}
+            </div>
+          )}
+        </div>
+        <div className="app-header-right">
+          <div className="date-price-display">
+            <div className="date-price-current">
+              <span className="date-label">Date:</span>
+              <span className={`date-value ${isFuture ? 'date-value-old' : ''}`}>
+                {currentDate}
+              </span>
+              {isFuture && (
+                <span className="date-value"> → {futureDate}</span>
+              )}
+            </div>
+            <div className="date-price-current">
+              <span className="price-label">TES3 Price:</span>
+              <span className={`price-value ${isFuture ? 'price-value-old' : ''}`}>
+                {formatPriceDisplay(currentPrice)}
+              </span>
+              {isFuture && (
+                <span className="price-value"> → {formatPriceDisplay(futurePrice)}</span>
+              )}
+            </div>
           </div>
-        )}
+          <button 
+            className="date-price-toggle"
+            onClick={toggleDatePrice}
+            title={isFuture ? 'Return to current date' : 'Jump to future date'}
+          >
+            {isFuture ? '← Return to Nov 2025' : 'Jump to Oct 2026 →'}
+          </button>
+        </div>
       </header>
 
       <main className="app-main">
-        {/* Left Column: CDP Registry (top) and dCDP Registry (bottom) */}
+        {/* Left Column: Depository Registry (top) and Tokenized Depository Registry (bottom) */}
         <section className="app-section app-section-left-registries">
           <div className="registry-item">
             <CDPRegistry />
@@ -76,7 +124,9 @@ function AppContent() {
 function App() {
   return (
     <ToastProvider>
-      <AppContent />
+      <DatePriceProvider>
+        <AppContent />
+      </DatePriceProvider>
     </ToastProvider>
   );
 }

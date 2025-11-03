@@ -20,7 +20,7 @@ const LOGO_BASE_PATH = '/assets/logos/';
 const NODE_POSITIONS = {
   // Left column (vertical stack) - increased vertical spacing
   traditionalExchanges: { x: 15, y: 12 },  // Top-left
-  settlement: { x: 15, y: 45 },            // Middle-left (ST) - increased gap
+  settlement: { x: 15, y: 45 },            // Middle-left (Settlement) - increased gap
   cdp: { x: 15, y: 78 },                   // Bottom-left - increased gap
   
   // Right column - increased spacing
@@ -43,53 +43,53 @@ const NODE_CONFIG = {
     height: 90, // Increased height for bottom padding
   },
   settlement: {
-    label: 'ST',
+    label: 'Settlement',
     logo: `${LOGO_BASE_PATH}settlement-logo.png`,
     type: 'wallet', // dark blue background
-    width: 100, // Reduced width for less horizontal padding
-    height: 85, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   cdp: {
-    label: 'CDP',
+    label: 'Depository',
     logo: `${LOGO_BASE_PATH}cdp-logo.png`,
     type: 'institution',
-    width: 100, // Reduced width for less horizontal padding
-    height: 85, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   dcdp: {
-    label: 'dCDP',
+    label: 'Tokenized Depository',
     logo: `${LOGO_BASE_PATH}dcdp-logo.png`,
     type: 'wallet',
-    width: 100, // Reduced width for less horizontal padding
-    height: 85, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   digitalExchange: {
     label: 'Digital Exchange',
     logo: `${LOGO_BASE_PATH}digital-exchange-logo.png`,
     type: 'wallet',
-    width: 150, // Reduced width for less horizontal padding
-    height: 90, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   stablecoinProvider: {
     label: 'Stablecoin Provider',
     logo: `${LOGO_BASE_PATH}stablecoin-logo.png`,
     type: 'institution',
-    width: 150, // Reduced width for less horizontal padding
-    height: 90, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   thomas: {
     label: 'Thomas',
     logo: `${LOGO_BASE_PATH}thomas-logo.png`,
     type: 'wallet',
-    width: 120, // Reduced width for less horizontal padding
-    height: 90, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
   ap: {
     label: 'AP',
     logo: `${LOGO_BASE_PATH}ap-logo.png`,
     type: 'wallet',
-    width: 100, // Reduced width for less horizontal padding
-    height: 85, // Increased height for bottom padding
+    width: 150, // Same width as Traditional Exchanges
+    height: 90, // Same height as Traditional Exchanges
   },
 };
 
@@ -355,7 +355,7 @@ function NetworkVisualizer({ animationTrigger }) {
   };
 
   // Animation sequence for ETF creation - makes CDP and AP glow
-  // Shows that ETF shares were created in CDP registry for AP
+  // Shows that ETF shares were created in Depository registry for AP
   const playETFAnimation = () => {
     // Step 1: Make CDP glow with neon effect
     setActiveNodes((prev) => new Set(prev).add('cdp'));
@@ -381,11 +381,11 @@ function NetworkVisualizer({ animationTrigger }) {
   };
 
   // Animation sequence for Tokenize operation
-  // Shows the flow: AP → CDP → dCDP (tokenization process)
+  // Shows the flow: AP → Depository → Tokenized Depository (tokenization process)
   // Sequence:
   // 1. AP block glows first
-  // 2. 0.2 seconds later, CDP block glows and particle travels from CDP to dCDP
-  // 3. After particle reaches dCDP, dCDP block glows
+  // 2. 0.2 seconds later, Depository block glows and particle travels from Depository to Tokenized Depository
+  // 3. After particle reaches Tokenized Depository, Tokenized Depository block glows
   const playTokenizeAnimation = () => {
     // Step 1: Make AP glow with neon effect (AP initiates tokenization)
     setActiveNodes((prev) => new Set(prev).add('ap'));
@@ -770,7 +770,7 @@ function NetworkVisualizer({ animationTrigger }) {
         {/* Multi-line labels (Traditional Exchanges, Digital Exchange, Stablecoin Provider) have more bottom spacing */}
         <text
           x={pos.x}
-          y={nodeId === 'traditionalExchanges' || nodeId === 'digitalExchange' || nodeId === 'stablecoinProvider' 
+          y={nodeId === 'traditionalExchanges' || nodeId === 'digitalExchange' || nodeId === 'stablecoinProvider' || nodeId === 'dcdp'
             ? pos.y + 15  // Higher position for two-line labels = more bottom spacing
             : pos.y + 20}  // Standard position for single-line labels
           textAnchor="middle"
@@ -797,7 +797,13 @@ function NetworkVisualizer({ animationTrigger }) {
               <tspan x={pos.x} dy="18">Provider</tspan>
             </>
           )}
-          {!['traditionalExchanges', 'digitalExchange', 'stablecoinProvider'].includes(nodeId) && config.label}
+          {nodeId === 'dcdp' && (
+            <>
+              <tspan x={pos.x} dy="0">Tokenized</tspan>
+              <tspan x={pos.x} dy="18">Depository</tspan>
+            </>
+          )}
+          {!['traditionalExchanges', 'digitalExchange', 'stablecoinProvider', 'dcdp'].includes(nodeId) && config.label}
         </text>
       </g>
     );

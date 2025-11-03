@@ -1,6 +1,6 @@
 /**
- * CDP Registry Component
- * Displays offchain traditional securities balances from CDP registry
+ * Depository Registry Component
+ * Displays offchain traditional securities balances from Depository registry
  * Reads from JSON file or API endpoint
  */
 
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CDP_REGISTRY_API } from '../utils/constants';
 import './CDPRegistry.css';
 
-// Logo path for CDP Registry
+// Logo path for Depository Registry
 const LOGO_BASE_PATH = '/assets/logos/';
 
 // Stock symbol to name mapping
@@ -61,7 +61,7 @@ function CDPRegistry() {
   const [animationKey, setAnimationKey] = useState(0); // Key to trigger phase in/out animation
   const prevRegistryDataRef = useRef(null); // Track previous data to detect changes
 
-  // Load CDP registry data
+  // Load Depository registry data
   // Reads from localStorage first (if ETF creation has occurred), then falls back to API
   useEffect(() => {
     async function loadRegistry() {
@@ -75,14 +75,13 @@ function CDPRegistry() {
         if (storedRegistry) {
           try {
             data = JSON.parse(storedRegistry);
-            console.log('[CDPRegistry] Loaded registry from localStorage');
           } catch (e) {
-            console.warn('[CDPRegistry] Failed to parse stored registry, fetching from API');
+            console.warn('[DepositoryRegistry] Failed to parse stored registry, fetching from API');
             // If localStorage data is corrupted, fetch from API
             const response = await fetch(CDP_REGISTRY_API);
             
             if (!response.ok) {
-              throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+              throw new Error(`Failed to load Depository registry: ${response.status} ${response.statusText}`);
             }
             
             const contentType = response.headers.get('content-type');
@@ -98,7 +97,7 @@ function CDPRegistry() {
           const response = await fetch(CDP_REGISTRY_API);
           
           if (!response.ok) {
-            throw new Error(`Failed to load CDP registry: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to load Depository registry: ${response.status} ${response.statusText}`);
           }
           
           // Check if response is actually JSON before parsing
@@ -108,14 +107,13 @@ function CDPRegistry() {
           }
           
           data = await response.json();
-          console.log('[CDPRegistry] Loaded registry from API');
           
           // Sync localStorage with API data so future reads can use localStorage
           // This ensures consistency across page refreshes
           try {
             localStorage.setItem('cdp-registry', JSON.stringify(data));
           } catch (e) {
-            console.warn('[CDPRegistry] Failed to store registry in localStorage:', e);
+            console.warn('[DepositoryRegistry] Failed to store registry in localStorage:', e);
           }
         }
         
@@ -131,7 +129,7 @@ function CDPRegistry() {
           setAnimationKey(prev => prev + 1);
         }
       } catch (err) {
-        console.error('Error loading CDP registry:', err);
+        console.error('Error loading Depository registry:', err);
         setError(err.message);
         
         // Set empty placeholder data if loading fails
@@ -152,7 +150,6 @@ function CDPRegistry() {
     // Listen for custom event to refresh immediately after ETF creation
     // This ensures the registry updates right away without waiting for polling
     const handleRegistryUpdate = () => {
-      console.log('[CDPRegistry] Registry update event received, refreshing...');
       // Trigger phase out/in animation by updating the key
       setAnimationKey(prev => prev + 1);
       // Load registry after a small delay to allow animation to start
@@ -161,7 +158,7 @@ function CDPRegistry() {
       }, 100);
     };
     
-    window.addEventListener('cdp-registry-updated', handleRegistryUpdate);
+    window.addEventListener('depository-registry-updated', handleRegistryUpdate);
 
     // Set up polling to refresh data periodically (fallback)
     // This ensures we get updates even if events are missed
@@ -223,7 +220,7 @@ function CDPRegistry() {
             className="cdp-registry-logo"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
-        <h3>CDP Registry</h3>
+        <h3>Depository Registry</h3>
         </div>
         <div className="cdp-loading">Loading...</div>
       </div>
@@ -240,7 +237,7 @@ function CDPRegistry() {
             className="cdp-registry-logo"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
-        <h3>CDP Registry</h3>
+        <h3>Depository Registry</h3>
         </div>
         <div className="cdp-error">Error: {error}</div>
       </div>
@@ -274,7 +271,7 @@ function CDPRegistry() {
           className="cdp-registry-logo"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-      <h3>CDP Registry</h3>
+      <h3>Depository Registry</h3>
       </div>
       <AnimatePresence mode="wait">
         <motion.div
