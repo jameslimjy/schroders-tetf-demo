@@ -94,6 +94,12 @@
 .cdp-symbol {
   color: #000;
   font-weight: 500;
+  margin-right: 8px;
+}
+
+.cdp-stock-description {
+  color: #666;
+  font-weight: 400;
 }
 
 .cdp-quantity {

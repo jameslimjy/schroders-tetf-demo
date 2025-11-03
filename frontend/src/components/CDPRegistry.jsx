@@ -201,7 +201,9 @@ function CDPRegistry() {
         <div className="cdp-holdings">
           {holdingsEntries.map(([symbol, quantity]) => (
             <div key={symbol} className="cdp-holding">
-              <span className="cdp-symbol">{symbol} ({getStockName(symbol)}):</span>
+              <span className="cdp-symbol">
+                {symbol} <span className="cdp-stock-description">({getStockName(symbol)})</span>:
+              </span>
               <span className="cdp-quantity">{quantity.toLocaleString()}</span>
             </div>
           ))}

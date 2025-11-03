@@ -168,7 +168,7 @@ function BlockExplorer() {
           <table className="block-explorer-table">
             <thead>
               <tr>
-                <th>Txn Hash</th>
+                <th>Transaction Hash</th>
                 <th>Function</th>
                 <th>Block</th>
                 <th>From</th>

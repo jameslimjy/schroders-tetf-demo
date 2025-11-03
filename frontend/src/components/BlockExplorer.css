@@ -93,12 +93,19 @@
   color: #333;
   border-bottom: 2px solid #ddd;
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .block-explorer-table td {
   padding: 8px 12px;
   border-bottom: 1px solid #eee;
+}
+
+/* Equal column spacing */
+.block-explorer-table th,
+.block-explorer-table td {
+  width: 20%; /* Equal width for all 5 columns */
+  text-align: left;
 }
 
 .block-explorer-row:hover {
