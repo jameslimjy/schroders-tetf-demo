@@ -432,6 +432,81 @@ function NetworkVisualizer({ animationTrigger }) {
     }, 3500); // Total animation duration: ~3.5 seconds
   };
 
+  // Animation sequence for redeem (reverse of tokenize)
+  // Shows redemption flow: Tokenized Depository → Depository
+  // Uses same glow animation as tokenize but flows in reverse direction
+  const playRedeemAnimation = useCallback(() => {
+    console.log('[NetworkVisualizer] Playing redeem animation...');
+    
+    // Step 1: Make dCDP glow (source of redemption)
+    setActiveNodes((prev) => {
+      const next = new Set(prev);
+      next.add('dcdp');
+      return next;
+    });
+
+    // Step 2: Create particle animation from dCDP to CDP (reverse flow)
+    // Use bright blue/purple colors (same as tokenize but reverse direction)
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('cdp');
+        return next;
+      });
+
+      // Create particle animation from dCDP to CDP (reverse of tokenize)
+      // Use ref to ensure we have the latest createParticle function with current dimensions
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('dcdp', 'cdp', '#aa55ff', '#00aaff', 'redeem'); // Bright purple to bright blue (reverse)
+      // Additional burst particles for more visual impact
+      setTimeout(() => createParticleFn('dcdp', 'cdp', '#aa55ff', '#00aaff', 'redeem'), 25);
+      setTimeout(() => createParticleFn('dcdp', 'cdp', '#aa55ff', '#00aaff', 'redeem'), 50);
+    }, 200); // 0.2 seconds delay
+
+    // Step 3: After particle animation reaches CDP
+    // Make CDP glow when securities are redeemed
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('cdp');
+        return next;
+      });
+    }, 1200); // 200ms (initial delay) + 1000ms (particle travel time) = 1200ms
+
+    // Step 4: Remove all glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('dcdp');
+        next.delete('cdp');
+        return next;
+      });
+    }, 3500); // Total animation duration: ~3.5 seconds
+  }, []);
+
+  // Store redeem animation ref for event listener
+  const playRedeemAnimationRef = useRef(null);
+  
+  useEffect(() => {
+    playRedeemAnimationRef.current = playRedeemAnimation;
+  }, [playRedeemAnimation]);
+
+  // Listen for Redeem events to trigger dCDP → CDP animation (reverse of tokenize)
+  useEffect(() => {
+    const handleRedeemExecuted = () => {
+      console.log('[NetworkVisualizer] Redeem executed event received, playing animation...');
+      if (playRedeemAnimationRef.current) {
+        playRedeemAnimationRef.current();
+      }
+    };
+
+    window.addEventListener('redeem-executed', handleRedeemExecuted);
+
+    return () => {
+      window.removeEventListener('redeem-executed', handleRedeemExecuted);
+    };
+  }, []); // Empty dependencies - event listener setup only once
+
   // Watch for animation trigger changes
   useEffect(() => {
     if (animationTrigger && animationTrigger.type === 'onramp') {
@@ -659,7 +734,7 @@ function NetworkVisualizer({ animationTrigger }) {
 
     // Colors - specific colors for certain stakeholders, default for others
     const stakeholderColors = {
-      ap: '#57c7cd',
+      ap: '#ea542f',
       thomas: '#00796d',
       dcdp: '#f8a908',
       traditionalExchanges: '#0f2859', // Match main background

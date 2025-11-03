@@ -41,6 +41,14 @@ contract dCDP is Ownable {
         address indexed tokenAddress
     );
 
+    // Event emitted when tokenized securities are redeemed
+    event Redeemed(
+        string indexed owner_id,
+        string symbol,
+        uint256 quantity,
+        address indexed tokenAddress
+    );
+
     /**
      * @notice Constructor sets initial owner and TES3 token address
      * @param initialOwner Address that will own the contract (dCDP admin)
@@ -117,6 +125,49 @@ contract dCDP is Ownable {
 
         // Emit event for tracking
         emit Tokenized(owner_id, symbol, quantity, address(tes3Token));
+    }
+
+    /**
+     * @notice Redeem tokenized tokens back to traditional securities
+     * @dev Only callable by admin
+     * 
+     * IMPORTANT: This function assumes offchain validation will occur:
+     * - CDP registry will be updated to increase traditional balance
+     * 
+     * This function only burns the corresponding TES3 tokens onchain
+     * 
+     * @param owner_id String identifier for the owner (e.g., "AP")
+     * @param quantity Amount of tokens to burn (in wei, 18 decimals)
+     * @param symbol Symbol of the security being redeemed (only "ES3" supported in this demo)
+     */
+    function redeem(
+        string memory owner_id,
+        uint256 quantity,
+        string memory symbol
+    ) external onlyAdmin {
+        require(bytes(owner_id).length > 0, "dCDP: owner_id cannot be empty");
+        require(quantity > 0, "dCDP: quantity must be greater than zero");
+        require(bytes(symbol).length > 0, "dCDP: symbol cannot be empty");
+        
+        // Verify owner_id has a registered wallet
+        address ownerAddress = ownerToAddress[owner_id];
+        require(ownerAddress != address(0), "dCDP: owner_id does not have a registered wallet");
+
+        // Currently only ES3 is supported in this demo
+        require(
+            keccak256(bytes(symbol)) == keccak256(bytes("ES3")),
+            "dCDP: only ES3 redemption is supported"
+        );
+
+        // Check if owner has sufficient TES3 tokens
+        uint256 balance = tes3Token.balanceOf(ownerAddress);
+        require(balance >= quantity, "dCDP: insufficient TES3 balance");
+
+        // Burn TES3 tokens from the owner's address
+        tes3Token.burn(ownerAddress, quantity);
+
+        // Emit event for tracking
+        emit Redeemed(owner_id, symbol, quantity, address(tes3Token));
     }
 
     /**

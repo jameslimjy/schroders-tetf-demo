@@ -229,3 +229,64 @@ export async function tokenizeSecurity(ownerId, quantity, symbol = 'ES3') {
   }
 }
 
+/**
+ * Redeem tokenized securities (increase CDP registry balance)
+ * This function updates the CDP registry when redemption occurs:
+ * - Increases the ETF balance in CDP registry
+ * - Stores updated registry in localStorage
+ * 
+ * @param {string} ownerId - Owner ID (e.g., "AP")
+ * @param {number} quantity - Number of securities to redeem
+ * @param {string} symbol - Security symbol (e.g., "ES3")
+ * @returns {Promise<Object>} Result of redemption
+ */
+export async function redeemSecurity(ownerId, quantity, symbol = 'ES3') {
+  try {
+    // Get current registry - check localStorage first, then fetch from API
+    let registry;
+    const storedRegistry = localStorage.getItem('cdp-registry');
+    
+    if (storedRegistry) {
+      try {
+        registry = JSON.parse(storedRegistry);
+      } catch (e) {
+        console.warn('Failed to parse stored registry, fetching fresh copy');
+        registry = await fetchCDPRegistry();
+      }
+    } else {
+      registry = await fetchCDPRegistry();
+    }
+
+    // Validate owner exists
+    if (!registry.accounts || !registry.accounts[ownerId]) {
+      throw new Error(`Owner ${ownerId} not found in CDP registry`);
+    }
+
+    const account = registry.accounts[ownerId];
+
+    // Initialize ETF balance if it doesn't exist
+    if (!account.etfs) {
+      account.etfs = {};
+    }
+    if (!account.etfs[symbol]) {
+      account.etfs[symbol] = 0;
+    }
+
+    // Increase ETF balance
+    const oldBalance = account.etfs[symbol];
+    account.etfs[symbol] = oldBalance + quantity;
+
+    // Store updated registry in localStorage
+    localStorage.setItem('cdp-registry', JSON.stringify(registry));
+
+    return {
+      success: true,
+      newBalance: account.etfs[symbol],
+      message: `Successfully redeemed ${quantity} ${symbol} for ${ownerId}`,
+    };
+  } catch (error) {
+    console.error('Error redeeming security:', error);
+    throw error;
+  }
+}
+

@@ -38,6 +38,7 @@ function BlockExplorer() {
       '0x9dc29fac': 'burn', // TES3.burn
       // dCDP functions
       '0x3f53de20': 'tokenize', // dCDP.tokenize
+      '0xba087652': 'redeem', // dCDP.redeem(string,uint256,string)
       '0xa54c222f': 'createWallet', // dCDP.createWallet
       '0xbf40fac1': 'getAddress', // dCDP.getAddress (view)
       '0xef4a7203': 'getOwnerId', // dCDP.getOwnerId (view)

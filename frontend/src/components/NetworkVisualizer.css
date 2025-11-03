@@ -31,7 +31,6 @@
   color: #0f2859;
   border-bottom: 3px solid #0f2859;
   padding-bottom: 8px;
-  flex-shrink: 0;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   letter-spacing: 0.5px;
 }

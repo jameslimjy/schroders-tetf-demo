@@ -20,8 +20,12 @@
 
 /* Panel header */
 .action-panel-header {
-  margin-bottom: 16px;
-  /* Remove padding-bottom and border-bottom from here - h3 handles it now */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #0f2859;
 }
 
 .action-panel-header h3 {
@@ -29,8 +33,6 @@
   font-size: 18px;
   font-weight: 700;
   color: #0f2859;
-  border-bottom: 3px solid #0f2859;
-  padding-bottom: 8px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   letter-spacing: 0.5px;
 }
@@ -85,10 +87,10 @@
   color: #ffffff; /* Changed to white to match Thomas section */
 }
 
-/* AP section - cyan/turquoise background */
+/* AP section - red-orange/coral background */
 .action-section-ap {
-  background-color: #57c7cd;
-  border-color: #45a8ad;
+  background-color: #ea542f;
+  border-color: #c94530;
 }
 
 .action-section-ap h4 {

@@ -37,12 +37,14 @@ const ERC20_ABI_MINIMAL = [
 const dCDP_ABI_MINIMAL = [
   'function createWallet(string memory owner_id, address walletAddress)',
   'function tokenize(string memory owner_id, uint256 quantity, string memory symbol)',
+  'function redeem(string memory owner_id, uint256 quantity, string memory symbol)',
   'function getAddress(string memory owner_id) view returns (address)',
   'function getOwnerId(address walletAddress) view returns (string)',
   'function ownerToAddress(string memory owner_id) view returns (address)',
   'function addressToOwner(address walletAddress) view returns (string)',
   'event WalletCreated(string indexed owner_id, address indexed walletAddress)',
   'event Tokenized(string indexed owner_id, string symbol, uint256 quantity, address indexed tokenAddress)',
+  'event Redeemed(string indexed owner_id, string symbol, uint256 quantity, address indexed tokenAddress)',
 ];
 
 // Use full ABIs if available, otherwise use minimal

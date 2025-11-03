@@ -440,6 +440,31 @@ function DCDPRegistry() {
     
     // Listen to Tokenized events from dCDP (when tokenize() is called)
     contracts.dcdp.on('Tokenized', handleTokenized);
+    
+    // Listen to Redeemed events from dCDP (when redeem() is called)
+    // This handles the redemption flow where TES3 tokens are burned
+    const handleRedeemed = () => {
+      // Clear any pending updates
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Refresh balances when redemption occurs (TES3 tokens are burned)
+      // Trigger animation first, then update balances during animation
+      debounceTimerRef.current = setTimeout(() => {
+        // Trigger animation first
+        setAnimationKey(prev => prev + 1);
+        
+        // Update balances mid-animation
+        setTimeout(async () => {
+          await loadBalancesRef.current();
+          debounceTimerRef.current = null;
+        }, 350); // Update during animation
+        
+      }, 300);
+    };
+    
+    contracts.dcdp.on('Redeemed', handleRedeemed);
 
     return () => {
       // Clear any pending debounced updates
@@ -453,6 +478,7 @@ function DCDPRegistry() {
       contracts.tes3.off('Transfer', handleTransfer);
       contracts.dcdp.off('WalletCreated', handleWalletCreated);
       contracts.dcdp.off('Tokenized', handleTokenized);
+      contracts.dcdp.off('Redeemed', handleRedeemed);
     };
   }, [isReady, contracts]); // Removed resolveAddresses and loadBalances from dependencies
 
@@ -477,29 +503,6 @@ function DCDPRegistry() {
       window.removeEventListener('tokenized-depository-registry-updated', handleRegistryUpdate);
     };
   }, []);
-
-  // Copy contract address to clipboard
-  const copyToClipboard = async (text, tokenName) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // You could add a toast notification here if desired
-    } catch (err) {
-      console.error(`[DCDPRegistry] Failed to copy ${tokenName} address:`, err);
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-      } catch (fallbackErr) {
-        console.error(`[DCDPRegistry] Fallback copy failed:`, fallbackErr);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
 
   // Render account balances with animation
   const renderAccount = (accountName, accountData) => {
@@ -575,19 +578,6 @@ function DCDPRegistry() {
         <div className="dcdp-holdings">
           {parseFloat(tes3) > 0 && (
             <div className="dcdp-holding">
-              {contractAddresses?.TES3 && (
-                <button
-                  className="dcdp-clipboard-btn"
-                  onClick={() => copyToClipboard(contractAddresses.TES3, 'TES3')}
-                  title="Copy TES3 contract address to clipboard"
-                  aria-label="Copy TES3 contract address"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
-              )}
               <span className="dcdp-symbol">
                 TES3 {contractAddresses?.TES3 ? `(${shortenAddress(contractAddresses.TES3)})` : ''}:
               </span>
@@ -596,19 +586,6 @@ function DCDPRegistry() {
           )}
           {parseFloat(sgdc) > 0 && (
             <div className="dcdp-holding">
-              {contractAddresses?.SGDC && (
-                <button
-                  className="dcdp-clipboard-btn"
-                  onClick={() => copyToClipboard(contractAddresses.SGDC, 'SGDC')}
-                  title="Copy SGDC contract address to clipboard"
-                  aria-label="Copy SGDC contract address"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
-              )}
               <span className="dcdp-symbol">SGDC:</span>
               <span className="dcdp-quantity">{parseFloat(sgdc).toLocaleString()}</span>
             </div>

@@ -13,7 +13,7 @@ import { useToastContext } from '../contexts/ToastContext';
 import { useDatePrice } from '../contexts/DatePriceContext';
 import { parseTokenAmount, formatTokenAmount, waitForTransaction } from '../utils/contractHelpers';
 import { ACCOUNTS, UNIQUE_ID_TO_OWNER_ID } from '../utils/constants';
-import { createETF, tokenizeSecurity } from '../utils/api';
+import { createETF, tokenizeSecurity, redeemSecurity } from '../utils/api';
 import './ActionPanel.css';
 
 /**
@@ -458,9 +458,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const { getCurrentPrice } = useDatePrice();
   const [onrampAmount, setOnrampAmount] = useState('1000');
   const [buyQuantity, setBuyQuantity] = useState('2.5');
-  const [buyContractAddress, setBuyContractAddress] = useState('');
+  // Hardcoded TES3 contract address - always use this address for buy/sell operations
+  const buyContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
   const [sellQuantity, setSellQuantity] = useState('1.3');
-  const [sellContractAddress, setSellContractAddress] = useState('');
+  // Hardcoded TES3 contract address - always use this address for buy/sell operations
+  const sellContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
   const [loading, setLoading] = useState(false);
 
   // Onramp stablecoin
@@ -509,12 +511,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
-      // Validate contract address
-      if (!buyContractAddress || !buyContractAddress.startsWith('0x')) {
-        throw new Error('Please enter a valid contract address');
-      }
-
       // Parse quantity (e.g., 2.5 TES3)
+      // Contract address is hardcoded to TES3 contract: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
       const quantity = parseTokenAmount(buyQuantity);
       const quantityNumber = parseFloat(buyQuantity);
       
@@ -682,12 +680,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
-      // Validate contract address
-      if (!sellContractAddress || !sellContractAddress.startsWith('0x')) {
-        throw new Error('Please enter a valid contract address');
-      }
-
       // Parse quantity (e.g., 1.3 TES3)
+      // Contract address is hardcoded to TES3 contract: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
       const quantity = parseTokenAmount(sellQuantity);
       const quantityNumber = parseFloat(sellQuantity);
       
@@ -881,7 +875,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       </div>
 
       <div className="action-group">
-        <div className="action-name">Buy Asset</div>
+        <div className="action-name">Buy TES3</div>
         <div className="action-multi-input">
           <div className="action-input-stack">
             <input
@@ -891,14 +885,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
               onChange={(e) => setBuyQuantity(e.target.value)}
               placeholder="insert quantity"
             />
-            <input
-              type="text"
-              value={buyContractAddress}
-              onChange={(e) => setBuyContractAddress(e.target.value)}
-              placeholder="insert contract address"
-            />
           </div>
-          <button onClick={handleBuy} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Buy Asset">
+          <button onClick={handleBuy} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Buy TES3">
             &gt;
             <i>✓</i>
           </button>
@@ -906,7 +894,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       </div>
 
       <div className="action-group">
-        <div className="action-name">Sell Asset</div>
+        <div className="action-name">Sell TES3</div>
         <div className="action-multi-input">
           <div className="action-input-stack">
             <input
@@ -916,14 +904,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
               onChange={(e) => setSellQuantity(e.target.value)}
               placeholder="insert quantity"
             />
-            <input
-              type="text"
-              value={sellContractAddress}
-              onChange={(e) => setSellContractAddress(e.target.value)}
-              placeholder="insert contract address"
-            />
           </div>
-          <button onClick={handleSell} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Sell Asset">
+          <button onClick={handleSell} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Sell TES3">
             &gt;
             <i>✓</i>
           </button>
@@ -937,12 +919,15 @@ function ThomasActionsContent({ onOnrampSuccess }) {
  * Tokenized Depository Actions Content (extracted for reuse)
  */
 function DCDPActionsContent() {
-  const { contracts, getContractWithSigner } = useContracts();
+  const { contracts, getContractWithSigner, getBalance } = useContracts();
   const { provider, getSigner } = useBlockchain();
   const { showSuccess, showError } = useToastContext();
-  const [tokenizeOwnerId, setTokenizeOwnerId] = useState('SN91X81J21');
+  // Hardcoded owner ID - always use SN91X81J21 for tokenization and redemption
+  const tokenizeOwnerId = 'SN91X81J21';
   const [tokenizeQuantity, setTokenizeQuantity] = useState('50');
-  const [tokenizeSymbol, setTokenizeSymbol] = useState('ES3');
+  const [redeemQuantity, setRedeemQuantity] = useState('10');
+  // Hardcoded symbol - always use ES3 for tokenization and redemption
+  const tokenizeSymbol = 'ES3';
   const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
   const [loading, setLoading] = useState(false);
 
@@ -1025,6 +1010,102 @@ function DCDPActionsContent() {
     }
   };
 
+  // Redeem tokenized securities
+  // This converts tokenized tokens (TES3) back to traditional securities (ES3)
+  // Steps:
+  // 1. Check if AP has sufficient TES3 tokens
+  // 2. Burn TES3 tokens onchain via dCDP contract
+  // 3. Increase CDP registry balance (offchain)
+  // 4. Transaction appears in Block Explorer automatically
+  // 5. TES3 tokens decrease in dCDP Registry automatically
+  // 6. ES3 balance increases in CDP Registry automatically
+  const handleRedeem = async () => {
+    setLoading(true);
+
+    try {
+      if (!provider) {
+        throw new Error('Provider not connected');
+      }
+
+      // Map unique identifier (SN code) to owner ID
+      // User inputs unique identifier (e.g., SN91X81J21), but contract needs owner ID (e.g., AP)
+      const ownerId = UNIQUE_ID_TO_OWNER_ID[tokenizeOwnerId.toUpperCase()] || tokenizeOwnerId;
+      
+      // Parse quantity to wei (18 decimals) for blockchain transaction
+      const quantity = parseTokenAmount(redeemQuantity);
+      // Parse quantity as number for Depository registry (regular number, not wei)
+      const quantityNumber = parseFloat(redeemQuantity);
+      
+      if (isNaN(quantityNumber) || quantityNumber <= 0) {
+        throw new Error('Quantity must be a positive number');
+      }
+
+      // Step 1: Check if AP has sufficient TES3 tokens
+      // Get admin signer (Account #0) - admin has permission to call redeem
+      const adminSigner = getSigner(ACCOUNTS.ADMIN);
+      const dcdp = getContractWithSigner('dcdp', adminSigner);
+      
+      // Get AP's wallet address
+      const apAddress = await dcdp.ownerToAddress(ownerId);
+      if (!apAddress || apAddress === '0x0000000000000000000000000000000000000000') {
+        throw new Error(`${ownerId} does not have a registered wallet`);
+      }
+
+      // Check TES3 balance
+      const tes3Balance = await getBalance('tes3', apAddress);
+      if (BigInt(tes3Balance) < quantity) {
+        throw new Error(`Insufficient TES3 balance. Need ${formatTokenAmount(quantity)}, have ${formatTokenAmount(tes3Balance)}`);
+      }
+
+      // Step 2: Burn TES3 tokens onchain via Tokenized Depository contract
+      // Call Tokenized Depository.redeem() function with owner ID (not unique identifier)
+      // This burns TES3 tokens from the owner's registered wallet address
+      console.log(`[Redeem] Calling Tokenized Depository.redeem(${ownerId}, ${quantity.toString()}, ${tokenizeSymbol})...`);
+      const tx = await dcdp.redeem(ownerId, quantity, tokenizeSymbol);
+      console.log(`[Redeem] Transaction submitted: ${tx.hash}`);
+      
+      // Wait for transaction with timeout to prevent indefinite hanging
+      await waitForTransaction(tx, 60000); // 60 second timeout
+      console.log(`[Redeem] Transaction confirmed!`);
+      
+      // Step 3: Update Depository registry and increase balance (offchain)
+      // This increases AP's ES3 shares in the registry
+      console.log(`[Redeem] Updating Depository registry for ${quantityNumber} ${tokenizeSymbol} for ${ownerId}...`);
+      await redeemSecurity(ownerId, quantityNumber, tokenizeSymbol);
+      console.log(`[Redeem] Depository registry updated: ${quantityNumber} ${tokenizeSymbol} added`);
+      
+      // Show success message
+      showSuccess(
+        `Redeem successful: ${redeemQuantity} ${tokenizeSymbol} redeemed. ` +
+        `Burned ${redeemQuantity} TES3 tokens from ${ownerId}. ` +
+        `Transaction: ${tx.hash.slice(0, 10)}...`
+      );
+      
+      // Trigger custom event to refresh Depository Registry component
+      // This ensures the registry updates immediately to show increased balance
+      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
+      
+      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
+      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+      
+      // Trigger network visualizer animation for redemption
+      // This creates a glow effect and particle animation: Tokenized Depository → Depository (reverse of tokenize)
+      window.dispatchEvent(new CustomEvent('redeem-executed', { 
+        detail: { 
+          quantity, 
+          symbol: tokenizeSymbol,
+          ownerId
+        } 
+      }));
+      
+    } catch (err) {
+      console.error('Redeem error:', err);
+      showError(err.message || 'Failed to redeem');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Create wallet
   const handleCreateWallet = async () => {
     setLoading(true);
@@ -1079,36 +1160,6 @@ function DCDPActionsContent() {
   return (
     <>
       <div className="action-group">
-        <div className="action-name">Tokenize</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="text"
-              value={tokenizeOwnerId}
-              onChange={(e) => setTokenizeOwnerId(e.target.value)}
-              placeholder="insert unique ID (e.g., SN72K45M83)"
-            />
-            <input
-              type="number"
-              value={tokenizeQuantity}
-              onChange={(e) => setTokenizeQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-            <input
-              type="text"
-              value={tokenizeSymbol}
-              onChange={(e) => setTokenizeSymbol(e.target.value)}
-              placeholder="insert symbol"
-            />
-          </div>
-          <button onClick={handleTokenize} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Tokenize">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
-      </div>
-
-      <div className="action-group">
         <div className="action-name">Create Wallet</div>
         <div className="action-input-row">
           <input
@@ -1118,6 +1169,42 @@ function DCDPActionsContent() {
             placeholder="insert unique ID (e.g., SN72K45M83)"
           />
           <button onClick={handleCreateWallet} disabled={loading} className="action-submit-btn" title="Create Wallet">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+
+      <div className="action-group">
+        <div className="action-name">Tokenize ES3</div>
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="number"
+              value={tokenizeQuantity}
+              onChange={(e) => setTokenizeQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+          </div>
+          <button onClick={handleTokenize} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Tokenize ES3">
+            &gt;
+            <i>✓</i>
+          </button>
+        </div>
+      </div>
+
+      <div className="action-group">
+        <div className="action-name">Redeem ES3</div>
+        <div className="action-multi-input">
+          <div className="action-input-stack">
+            <input
+              type="number"
+              value={redeemQuantity}
+              onChange={(e) => setRedeemQuantity(e.target.value)}
+              placeholder="insert quantity"
+            />
+          </div>
+          <button onClick={handleRedeem} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Redeem ES3">
             &gt;
             <i>✓</i>
           </button>
@@ -1133,7 +1220,8 @@ function DCDPActionsContent() {
 function APActionsContent() {
   const { showSuccess, showError } = useToastContext();
   const [etfQuantity, setEtfQuantity] = useState('100');
-  const [etfSymbol, setEtfSymbol] = useState('ES3');
+  // Hardcoded symbol - always use ES3 for ETF creation
+  const etfSymbol = 'ES3';
   const [loading, setLoading] = useState(false);
 
   // Create ETF (offchain operation)
@@ -1184,7 +1272,7 @@ function APActionsContent() {
   return (
     <>
       <div className="action-group">
-        <div className="action-name">Create ETF</div>
+        <div className="action-name">Create ES3</div>
         <div className="action-multi-input">
           <div className="action-input-stack">
             <input
@@ -1193,14 +1281,8 @@ function APActionsContent() {
               onChange={(e) => setEtfQuantity(e.target.value)}
               placeholder="insert quantity"
             />
-            <input
-              type="text"
-              value={etfSymbol}
-              onChange={(e) => setEtfSymbol(e.target.value)}
-              placeholder="insert symbol"
-            />
           </div>
-          <button onClick={handleCreateETF} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Create ETF">
+          <button onClick={handleCreateETF} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Create ES3">
             &gt;
             <i>✓</i>
           </button>
