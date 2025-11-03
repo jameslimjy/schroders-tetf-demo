@@ -3,14 +3,25 @@
  */
 
 .action-panel {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
-  background: white;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.95) 25%,
+    rgba(241, 245, 249, 0.95) 50%,
+    rgba(226, 232, 240, 0.95) 100%);
+  backdrop-filter: blur(20px);
   flex: 1; /* Allow panels to grow equally to fill available space */
   display: flex;
   flex-direction: column;
   min-height: 0; /* Allow flex shrinking */
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.1),
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    0 4px 8px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* Combined actions panel - single panel containing all sections */
@@ -22,19 +33,28 @@
 .action-panel-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 3px solid #0f2859;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid transparent;
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.6) 0%, 
+    rgba(147, 197, 253, 0.4) 50%, 
+    rgba(59, 130, 246, 0.4) 100%);
+  background-size: 100% 3px;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  position: relative;
 }
 
 .action-panel-header h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f2859;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  letter-spacing: 0.5px;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.25px;
 }
 
 /* Individual section within combined panel */
@@ -51,10 +71,13 @@
   margin-bottom: 0;
 }
 
-/* Thomas section - dark teal background */
+/* Thomas section - matches NetworkVisualizer thomas color */
 .action-section-thomas {
-  background-color: #00796d;
-  border-color: #005a52;
+  background: linear-gradient(135deg, #00a895 0%, #00796d 50%, #004d40 100%);
+  border: 2px solid rgba(0, 168, 149, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(0, 168, 149, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .action-section-thomas h4 {
@@ -69,10 +92,13 @@
   color: #ffffff;
 }
 
-/* dCDP section - orange/yellow background */
+/* dCDP section - matches NetworkVisualizer dcdp color */
 .action-section-dcdp {
-  background-color: #f8a908;
-  border-color: #d89100;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  border: 2px solid rgba(251, 191, 36, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(251, 191, 36, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .action-section-dcdp h4 {
@@ -87,10 +113,13 @@
   color: #ffffff; /* Changed to white to match Thomas section */
 }
 
-/* AP section - red-orange/coral background */
+/* AP section - matches NetworkVisualizer ap color */
 .action-section-ap {
-  background-color: #ea542f;
-  border-color: #c94530;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #dc2626 100%);
+  border: 2px solid rgba(248, 113, 113, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(248, 113, 113, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .action-section-ap h4 {
@@ -126,6 +155,11 @@
   font-size: 18px;
   font-weight: 600;
   color: #333;
+}
+
+/* Ensure headers in action sections are white */
+.action-section h4 {
+  color: #ffffff !important;
 }
 
 /* Compact section headers in combined panel */
@@ -203,7 +237,7 @@
   box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
-/* Sleek submit button with micro-interaction - CodePen design */
+/* Modern glass morphism submit button */
 .action-submit-btn {
   position: relative;
   padding: 8px 20px;
@@ -215,24 +249,42 @@
   align-items: center;
   font-size: 1.5rem;
   font-weight: 600;
-  border-radius: 15px;
-  border: 2px solid #00c2cb;
-  background: none;
-  color: #00c2cb;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px);
+  color: #ffffff;
   cursor: pointer;
   outline: none;
-  transition: 200ms;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Checkmark icon - initially transparent */
 .action-submit-btn i {
   position: absolute;
   color: transparent;
-  transition: 200ms;
+  transition: all 0.3s ease;
   font-style: normal;
   font-size: 1.5rem;
+}
+
+/* Hover state */
+.action-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.25) 0%, 
+    rgba(255, 255, 255, 0.15) 100%);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 /* Focus/active state - transforms to circular spinner */
@@ -246,8 +298,11 @@
   width: 50px;
   height: 50px;
   padding: 25px 25px;
-  border-left: 2px solid #00c2cb;
+  border-left: 2px solid rgba(255, 255, 255, 0.8);
   animation: spin 2s 500ms forwards;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    rgba(255, 255, 255, 0.1) 100%);
 }
 
 /* Checkmark appears after spin animation */
@@ -261,28 +316,31 @@
 @keyframes spin {
   80% {
     border: 2px solid transparent;
-    border-left: 2px solid #00c2cb;
+    border-left: 2px solid rgba(255, 255, 255, 0.8);
   }
   100% {
     transform: rotate(720deg);
-    border: 2px solid #00c2cb;
+    border: 2px solid rgba(255, 255, 255, 0.8);
   }
 }
 
 /* Checkmark fade-in animation */
 @keyframes check {
   to {
-    color: #00c2cb;
+    color: #ffffff;
   }
 }
 
 /* Disabled state */
 .action-submit-btn:disabled {
-  background: none;
-  border-color: #ccc;
-  color: #ccc;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.05) 0%, 
+    rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .action-submit-btn:disabled i {

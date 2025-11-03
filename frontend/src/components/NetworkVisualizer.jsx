@@ -732,18 +732,16 @@ function NetworkVisualizer({ animationTrigger }) {
     const x = pos.x - width / 2;
     const y = pos.y - height / 2;
 
-    // Colors - specific colors for certain stakeholders, default for others
-    const stakeholderColors = {
-      ap: '#ea542f',
-      thomas: '#00796d',
-      dcdp: '#f8a908',
-      traditionalExchanges: '#0f2859', // Match main background
-      settlement: '#0f2859', // Match main background
-      cdp: '#0f2859', // Match main background
-      digitalExchange: '#0f2859', // Match main background
-      stablecoinProvider: '#0f2859', // Match main background
+    // Colors - use gradients for Thomas, dCDP, and AP, solid colors for others
+    const getFillColor = (nodeId) => {
+      // Use gradient URLs for stakeholders with ombre backgrounds
+      if (nodeId === 'thomas') return 'url(#thomasGradient)';
+      if (nodeId === 'dcdp') return 'url(#dcdpGradient)';
+      if (nodeId === 'ap') return 'url(#apGradient)';
+      // Default dark blue for other nodes
+      return '#0f2859';
     };
-    const fillColor = stakeholderColors[nodeId] || '#2596be'; // Default color or stakeholder-specific
+    const fillColor = getFillColor(nodeId);
     const textColor = '#ffffff'; // White text for all blocks
     // Neon glow colors for active nodes - all use light neon blue
     const neonStrokeColor = isActive 
@@ -1018,6 +1016,28 @@ function NetworkVisualizer({ animationTrigger }) {
                 <feMergeNode in="SourceGraphic"/>
               </feMerge>
             </filter>
+            
+            {/* Gradient definitions for ombre backgrounds - matching ActionPanel colors */}
+            {/* Thomas gradient - teal ombre */}
+            <linearGradient id="thomasGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#00a895" />
+              <stop offset="50%" stopColor="#00796d" />
+              <stop offset="100%" stopColor="#004d40" />
+            </linearGradient>
+            
+            {/* dCDP gradient - orange ombre */}
+            <linearGradient id="dcdpGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fbbf24" />
+              <stop offset="50%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#d97706" />
+            </linearGradient>
+            
+            {/* AP gradient - red ombre */}
+            <linearGradient id="apGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f87171" />
+              <stop offset="50%" stopColor="#ef4444" />
+              <stop offset="100%" stopColor="#dc2626" />
+            </linearGradient>
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
 
