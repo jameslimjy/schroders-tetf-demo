@@ -97,8 +97,13 @@
 }
 
 .dcdp-symbol {
-  color: #666;
+  color: #000;
   font-weight: 500;
+}
+
+.dcdp-address-description {
+  color: #666;
+  font-weight: 400;
 }
 
 .dcdp-quantity {

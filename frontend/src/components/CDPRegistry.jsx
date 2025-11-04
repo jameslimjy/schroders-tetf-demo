@@ -54,6 +54,18 @@ function getStockName(symbol) {
   return STOCK_NAMES[symbol] || symbol;
 }
 
+// Function to format account name for display (capitalize first letter, rest lowercase)
+// Keep "AP" as uppercase, convert others like "THOMAS" to "Thomas"
+function formatAccountName(accountId) {
+  if (!accountId) return accountId;
+  // Keep AP as uppercase
+  if (accountId.toUpperCase() === 'AP') {
+    return 'AP';
+  }
+  // Capitalize first letter, lowercase the rest
+  return accountId.charAt(0).toUpperCase() + accountId.slice(1).toLowerCase();
+}
+
 function CDPRegistry() {
   const [registryData, setRegistryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -186,7 +198,7 @@ function CDPRegistry() {
       return (
         <div key={accountId} className="cdp-account">
           <div className="cdp-account-name">
-            {accountId} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
+            {formatAccountName(accountId)} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
           </div>
           <div className="cdp-empty">No holdings</div>
         </div>
@@ -196,7 +208,7 @@ function CDPRegistry() {
     return (
       <div key={accountId} className="cdp-account">
         <div className="cdp-account-name">
-          {accountId} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
+          {formatAccountName(accountId)} {uniqueId && <span className="cdp-unique-id">({uniqueId})</span>}:
         </div>
         <div className="cdp-holdings">
           {holdingsEntries.map(([symbol, quantity]) => (

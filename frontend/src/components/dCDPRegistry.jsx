@@ -15,6 +15,18 @@ import './dCDPRegistry.css';
 // Logo path for Tokenized Depository Registry
 const LOGO_BASE_PATH = '/assets/logos/';
 
+// Function to format account name for display (capitalize first letter, rest lowercase)
+// Keep "AP" as uppercase, convert others like "THOMAS" to "Thomas"
+function formatAccountName(accountId) {
+  if (!accountId) return accountId;
+  // Keep AP as uppercase
+  if (accountId.toUpperCase() === 'AP') {
+    return 'AP';
+  }
+  // Capitalize first letter, lowercase the rest
+  return accountId.charAt(0).toUpperCase() + accountId.slice(1).toLowerCase();
+}
+
 // Helper function to check if an address is a contract address
 // This prevents calling balanceOf on contract addresses
 // Uses dynamic contract addresses from deployment info
@@ -621,28 +633,26 @@ function DCDPRegistry() {
         initial={animationProps.initial}
         animate={animationProps.animate}
         transition={animationProps.transition}
-        whileHover={{ scale: 1.02 }}
       >
         <div className="dcdp-account-header">
-          <span className="dcdp-account-name">{accountName}</span>
-          {address && (
-            <span className="dcdp-address">
-              [{shortenAddress(address, ADDRESS_SHORT_LENGTH)}]
-            </span>
-          )}
+          <span className="dcdp-account-name">
+            {formatAccountName(accountName)} {address && <span className="dcdp-address">({shortenAddress(address, ADDRESS_SHORT_LENGTH)})</span>}:
+          </span>
         </div>
         <div className="dcdp-holdings">
           {parseFloat(tes3) > 0 && (
             <div className="dcdp-holding">
               <span className="dcdp-symbol">
-                TES3 {contractAddresses?.TES3 ? `(${shortenAddress(contractAddresses.TES3)})` : ''}:
+                TES3 {contractAddresses?.TES3 && <span className="dcdp-address-description">({shortenAddress(contractAddresses.TES3)})</span>}:
               </span>
               <span className="dcdp-quantity">{parseFloat(tes3).toLocaleString()}</span>
             </div>
           )}
           {parseFloat(sgdc) > 0 && (
             <div className="dcdp-holding">
-              <span className="dcdp-symbol">SGDC:</span>
+              <span className="dcdp-symbol">
+                SGDC {contractAddresses?.SGDC && <span className="dcdp-address-description">({shortenAddress(contractAddresses.SGDC)})</span>}:
+              </span>
               <span className="dcdp-quantity">{parseFloat(sgdc).toLocaleString()}</span>
             </div>
           )}

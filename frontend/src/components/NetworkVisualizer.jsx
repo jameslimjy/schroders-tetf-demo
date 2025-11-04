@@ -19,18 +19,19 @@ const LOGO_BASE_PATH = '/assets/logos/';
 // Increased spacing to prevent overlap on smaller screens
 const NODE_POSITIONS = {
   // Left column (vertical stack) - increased vertical spacing
-  traditionalExchanges: { x: 15, y: 12 },  // Top-left
-  settlement: { x: 15, y: 45 },            // Middle-left (Settlement) - increased gap
-  cdp: { x: 15, y: 78 },                   // Bottom-left - increased gap
+  // Moved all blocks down by ~2% (approximately 14px) to prevent top cutoff
+  traditionalExchanges: { x: 15, y: 14 },  // Top-left - moved down from 12 to 14
+  settlement: { x: 15, y: 47 },            // Middle-left (Settlement) - moved down from 45 to 47
+  cdp: { x: 15, y: 80 },                   // Bottom-left - moved down from 78 to 80
   
   // Right column - increased spacing
-  thomas: { x: 65, y: 12 },                // Top-right (above Digital Exchange)
-  digitalExchange: { x: 65, y: 45 },       // Middle-right-left - increased gap
-  stablecoinProvider: { x: 85, y: 45 },    // Middle-right-right - increased horizontal spacing
-  dcdp: { x: 65, y: 78 },                  // Bottom-right (aligned with CDP) - increased gap
+  thomas: { x: 65, y: 14 },                // Top-right (above Digital Exchange) - moved down from 12 to 14
+  digitalExchange: { x: 65, y: 47 },       // Middle-right-left - moved down from 45 to 47
+  stablecoinProvider: { x: 85, y: 47 },    // Middle-right-right - moved down from 45 to 47
+  dcdp: { x: 65, y: 80 },                  // Bottom-right (aligned with CDP) - moved down from 78 to 80
   
   // AP (connected to CDP with 90-degree angle) - adjusted to prevent overlap
-  ap: { x: 40, y: 65 },                    // Right of CDP, then up - more spacing
+  ap: { x: 40, y: 67 },                    // Right of CDP, then up - moved down from 65 to 67
 };
 
 // Node configuration with logos and styling
@@ -40,56 +41,56 @@ const NODE_CONFIG = {
     logo: `${LOGO_BASE_PATH}traditional-exchange-logo.png`,
     type: 'institution', // light grey background
     width: 150, // Reduced width for less horizontal padding
-    height: 90, // Increased height for bottom padding
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   settlement: {
     label: 'Settlement',
     logo: `${LOGO_BASE_PATH}settlement-logo.png`,
     type: 'wallet', // dark blue background
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   cdp: {
     label: 'Depository',
     logo: `${LOGO_BASE_PATH}cdp-logo.png`,
     type: 'institution',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   dcdp: {
     label: 'Tokenized Depository',
     logo: `${LOGO_BASE_PATH}dcdp-logo.png`,
     type: 'wallet',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   digitalExchange: {
     label: 'Digital Exchange',
     logo: `${LOGO_BASE_PATH}digital-exchange-logo.png`,
     type: 'wallet',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   stablecoinProvider: {
     label: 'Stablecoin Provider',
     logo: `${LOGO_BASE_PATH}stablecoin-logo.png`,
     type: 'institution',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   thomas: {
     label: 'Thomas',
     logo: `${LOGO_BASE_PATH}thomas-logo.png`,
     type: 'wallet',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
   ap: {
     label: 'AP',
     logo: `${LOGO_BASE_PATH}ap-logo.png`,
     type: 'wallet',
     width: 150, // Same width as Traditional Exchanges
-    height: 90, // Same height as Traditional Exchanges
+    height: 105, // Increased height by 15px (from 90 to 105)
   },
 };
 
@@ -850,6 +851,15 @@ function NetworkVisualizer({ animationTrigger }) {
           transition={{ duration: 0.3 }}
         />
         
+        {/* White circle background for logo - makes PNG logos more visible */}
+        <circle
+          cx={pos.x}
+          cy={y + 30}
+          r="25"
+          fill="#ffffff"
+          opacity={0.95}
+        />
+        
         {/* Logo image (centered horizontally, top portion) - bigger size */}
         <image
           x={pos.x - 18}
@@ -868,11 +878,12 @@ function NetworkVisualizer({ animationTrigger }) {
         {/* Stakeholder name (centered in rectangle, below logo) - bigger font */}
         {/* Adjusted y position to add bottom padding - text positioned higher in box */}
         {/* Multi-line labels (Traditional Exchanges, Digital Exchange, Stablecoin Provider) have more bottom spacing */}
+        {/* Increased vertical spacing between logo background and text */}
         <text
           x={pos.x}
           y={nodeId === 'traditionalExchanges' || nodeId === 'digitalExchange' || nodeId === 'stablecoinProvider' || nodeId === 'dcdp'
-            ? pos.y + 15  // Higher position for two-line labels = more bottom spacing
-            : pos.y + 20}  // Standard position for single-line labels
+            ? pos.y + 25  // Increased from 15 to 25 for more spacing below logo
+            : pos.y + 30}  // Increased from 20 to 30 for more spacing below logo
           textAnchor="middle"
           fontSize="16"
           fontWeight="600"

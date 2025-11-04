@@ -76,6 +76,11 @@ contract DeployScript is Script {
         dcdp.createWallet("AP", AP_ADDRESS);
         console.log("AP wallet created: AP ->", AP_ADDRESS);
 
+        // Step 6: Mint 1,000,000 SGDC to AP wallet
+        console.log("\n--- Minting SGDC to AP ---");
+        sgdc.mint(AP_ADDRESS, 1000000 ether);
+        console.log("Minted 1,000,000 SGDC to AP at address:", AP_ADDRESS);
+
         vm.stopBroadcast();
 
         // Display summary

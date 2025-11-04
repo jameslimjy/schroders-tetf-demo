@@ -2,29 +2,59 @@
  * Block Explorer Component
  * Displays onchain transactions in real-time
  * Shows transaction hash, function name, block number, from/to addresses
+ * 
+ * Enhanced Features:
+ * - Detects contract deployments and identifies which contract was deployed (SGDC, TES3, dCDP)
+ * - Shows descriptive function names instead of "unknown"
+ * - Identifies contract-specific function calls (setDCDP, createWallet, etc.)
+ * - Matches transactions to known contract addresses for better context
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ethers } from 'ethers';
 import { useBlockchain } from '../hooks/useBlockchain';
+import { useDeploymentInfo } from '../hooks/useDeploymentInfo';
 import { shortenAddress } from '../utils/contractHelpers';
 import { ADDRESS_SHORT_LENGTH } from '../utils/constants';
 import './BlockExplorer.css';
 
 function BlockExplorer() {
   const { provider, isConnected, blockNumber } = useBlockchain();
+  const { contractAddresses } = useDeploymentInfo();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const prevTransactionsRef = useRef([]);
 
-  // Parse transaction to extract function name
-  const getFunctionName = (tx) => {
+  // Calculate function selector for setDCDP(address)
+  // Using ethers.id() to get the function selector (first 4 bytes of keccak256 hash)
+  const SETDCDP_SELECTOR = ethers.id('setDCDP(address)').slice(0, 10).toLowerCase();
+
+  // Parse transaction to extract function name with enhanced detection
+  // Now handles contract deployments and matches to known contract addresses
+  const getFunctionName = useCallback((tx, contractAddressesMap = null) => {
     // Get input data from transaction (can be data or input field)
     const inputData = tx.input || tx.data || '';
+    const toAddress = tx.to;
     
-    // Try to decode function name from input data
+    // Detect contract deployments (when 'to' is null/undefined)
+    // Contract deployments create new contracts, so they don't have a 'to' address
+    if (!toAddress && inputData && inputData !== '0x' && inputData.length > 10) {
+      // This is a contract deployment transaction
+      // We'll identify which contract was deployed by checking the deployed address
+      // The deployed address is in the transaction receipt, so we'll handle this in loadTransactions
+      return 'deployContract'; // Placeholder, will be updated with specific contract name
+    }
+    
+    // Handle transactions with no input data or empty input
+    // This could be a simple ETH transfer or contract creation with minimal data
     if (!inputData || inputData === '0x' || inputData.length < 10) {
-      return 'transfer'; // Likely a simple transfer or contract creation
+      // Check if it's a contract deployment (no 'to' address)
+      if (!toAddress) {
+        return 'deployContract'; // Will be updated with specific contract name
+      }
+      // Otherwise, it's likely a simple ETH transfer
+      return 'ethTransfer';
     }
 
     // Function signatures (first 4 bytes / 10 hex chars including 0x)
@@ -40,13 +70,42 @@ function BlockExplorer() {
       '0x3f53de20': 'tokenize', // dCDP.tokenize
       '0xba087652': 'redeem', // dCDP.redeem(string,uint256,string)
       '0xa54c222f': 'createWallet', // dCDP.createWallet
-      '0xbf40fac1': 'getAddress', // dCDP.getAddress (view)
-      '0xef4a7203': 'getOwnerId', // dCDP.getOwnerId (view)
+      '0xbf40fac1': 'getAddress', // dCDP.getAddress (view - should not appear in transactions)
+      '0xef4a7203': 'getOwnerId', // dCDP.getOwnerId (view - should not appear in transactions)
+      // TES3 functions
+      [SETDCDP_SELECTOR]: 'setDCDP', // TES3.setDCDP(address)
     };
 
     const sig = inputData.slice(0, 10).toLowerCase();
-    return functionSignatures[sig] || 'unknown';
-  };
+    const functionName = functionSignatures[sig] || 'unknown';
+    
+    // If we have contract addresses, try to identify which contract this transaction is calling
+    if (contractAddressesMap && toAddress) {
+      const toLower = toAddress.toLowerCase();
+      // Add context to function name based on which contract is being called
+      if (toLower === contractAddressesMap.SGDC?.toLowerCase()) {
+        if (functionName === 'unknown') {
+          return 'sgdcCall';
+        }
+        return functionName === 'mint' ? 'mintSGDC' : functionName;
+      } else if (toLower === contractAddressesMap.TES3?.toLowerCase()) {
+        if (functionName === 'setDCDP') {
+          return 'linkTES3';
+        }
+        if (functionName === 'unknown') {
+          return 'tes3Call';
+        }
+        return functionName;
+      } else if (toLower === contractAddressesMap.dCDP?.toLowerCase()) {
+        if (functionName === 'unknown') {
+          return 'dcdpCall';
+        }
+        return functionName === 'createWallet' ? 'createWallet' : functionName;
+      }
+    }
+    
+    return functionName;
+  }, [SETDCDP_SELECTOR]);
 
   // Load all transactions from recent blocks
   // Loads up to 100 blocks to capture all past transactions
@@ -73,43 +132,112 @@ function BlockExplorer() {
       }
 
       // Extract transactions with details
+      // Enhanced to detect contract deployments and identify which contract was deployed
       const txList = [];
       for (const block of recentBlocks) {
         for (const tx of block.transactions) {
+          let fullTx, txHash, txReceipt;
+          
           if (typeof tx === 'string') {
             // Transaction hash, need to fetch full transaction
             try {
-              const fullTx = await provider.getTransaction(tx);
-              if (fullTx) {
-                txList.push({
-                  hash: tx,
-                  blockNumber: block.number,
-                  from: fullTx.from,
-                  to: fullTx.to,
-                  function: getFunctionName({ input: fullTx.data || fullTx.input, data: fullTx.data }),
-                  input: fullTx.data || fullTx.input,
-                });
-              }
+              txHash = tx;
+              fullTx = await provider.getTransaction(tx);
+              if (!fullTx) continue;
             } catch (err) {
               console.error(`Error loading transaction ${tx}:`, err);
+              continue;
             }
           } else {
             // Already have transaction object
-            txList.push({
-              hash: tx.hash,
-              blockNumber: block.number,
-              from: tx.from,
-              to: tx.to,
-              function: getFunctionName({ input: tx.data || tx.input, data: tx.data }),
-              input: tx.data || tx.input,
-            });
+            fullTx = tx;
+            txHash = tx.hash;
           }
+
+          // Fetch transaction receipt to get deployed contract address (for contract deployments)
+          let deployedContractAddress = null;
+          if (!fullTx.to) {
+            // This is a contract deployment - fetch receipt to get deployed contract address
+            try {
+              txReceipt = await provider.getTransactionReceipt(txHash);
+              if (txReceipt && txReceipt.contractAddress) {
+                deployedContractAddress = txReceipt.contractAddress;
+              }
+            } catch (err) {
+              // Receipt might not be available yet, that's okay
+              console.debug(`Receipt not available for ${txHash}:`, err.message);
+            }
+          }
+
+          // Determine function name with enhanced detection
+          // Using camelCase for function names: deploySGDC, deployTES3, deployTDepository, linkTES3, createWallet
+          let functionName;
+          if (!fullTx.to && deployedContractAddress) {
+            // Contract deployment - identify which contract was deployed
+            const deployedLower = deployedContractAddress.toLowerCase();
+            const addresses = contractAddresses || {};
+            
+            if (addresses.SGDC && deployedLower === addresses.SGDC.toLowerCase()) {
+              functionName = 'deploySGDC';
+            } else if (addresses.TES3 && deployedLower === addresses.TES3.toLowerCase()) {
+              functionName = 'deployTES3';
+            } else if (addresses.dCDP && deployedLower === addresses.dCDP.toLowerCase()) {
+              functionName = 'deployTDepository';
+            } else {
+              functionName = 'deployContract';
+            }
+          } else {
+            // Regular transaction - use getFunctionName with contract addresses
+            functionName = getFunctionName(
+              { 
+                input: fullTx.data || fullTx.input, 
+                data: fullTx.data || fullTx.input,
+                to: fullTx.to 
+              },
+              contractAddresses
+            );
+          }
+
+          txList.push({
+            hash: txHash,
+            blockNumber: block.number,
+            from: fullTx.from,
+            to: fullTx.to || deployedContractAddress, // Show deployed contract address if available
+            function: functionName,
+            input: fullTx.data || fullTx.input,
+          });
         }
       }
 
       // Sort by block number (newest first)
-      // No limit - show all transactions (scrollbar will handle overflow)
-      txList.sort((a, b) => b.blockNumber - a.blockNumber);
+      // Within the same block, sort by function name priority for block 2:
+      // deployTDepository -> deployTES3 -> linkTES3
+      // Function name priority map for custom ordering within blocks
+      const functionPriority = {
+        'deployTDepository': 1,
+        'deployTES3': 2,
+        'linkTES3': 3,
+        'deploySGDC': 1,
+        'createWallet': 1,
+      };
+      
+      txList.sort((a, b) => {
+        // First sort by block number (newest first)
+        if (b.blockNumber !== a.blockNumber) {
+          return b.blockNumber - a.blockNumber;
+        }
+        
+        // Within the same block, use function priority for specific functions
+        const priorityA = functionPriority[a.function] || 999;
+        const priorityB = functionPriority[b.function] || 999;
+        
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        
+        // If same priority, maintain original order (or sort alphabetically)
+        return a.function.localeCompare(b.function);
+      });
       
       // Track previous transactions to detect new ones
       // Use functional update to avoid dependency on transactions state
@@ -122,7 +250,7 @@ function BlockExplorer() {
     } finally {
       setLoading(false);
     }
-  }, [isConnected, provider, blockNumber]);
+  }, [isConnected, provider, blockNumber, contractAddresses, getFunctionName]);
 
   // Use ref to store latest loadTransactions function to prevent re-renders
   const loadTransactionsRef = useRef(loadTransactions);

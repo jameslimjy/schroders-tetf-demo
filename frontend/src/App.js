@@ -78,7 +78,7 @@ function AppContent() {
               )}
             </div>
             <div className="date-price-current">
-              <span className="price-label">TES3 Price:</span>
+              <span className="price-label">ES3:</span>
               <span className={`price-value ${isFuture ? 'price-value-old' : ''}`}>
                 {formatPriceDisplay(currentPrice)}
               </span>

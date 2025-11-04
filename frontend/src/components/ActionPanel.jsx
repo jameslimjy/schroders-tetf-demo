@@ -24,9 +24,9 @@ export function ThomasActions() {
   const { contracts, getContractWithSigner, getBalance } = useContracts();
   const { provider, getSigner } = useBlockchain();
   const { getCurrentPrice } = useDatePrice();
-  const [onrampAmount, setOnrampAmount] = useState('1000');
-  const [buyQuantity, setBuyQuantity] = useState('5.5');
-  const [sellQuantity, setSellQuantity] = useState('3');
+  const [onrampAmount, setOnrampAmount] = useState('500000');
+  const [buyQuantity, setBuyQuantity] = useState('2750');
+  const [sellQuantity, setSellQuantity] = useState('1500');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -194,7 +194,7 @@ export function ThomasActions() {
           type="number"
           value={onrampAmount}
           onChange={(e) => setOnrampAmount(e.target.value)}
-          placeholder="1000"
+          placeholder="500000"
         />
         <button onClick={handleOnramp} disabled={loading}>
           Onramp
@@ -208,7 +208,7 @@ export function ThomasActions() {
           step="0.1"
           value={buyQuantity}
           onChange={(e) => setBuyQuantity(e.target.value)}
-          placeholder="5.5"
+          placeholder="2750"
         />
         <button onClick={handleBuy} disabled={loading}>
           Buy Asset
@@ -222,7 +222,7 @@ export function ThomasActions() {
           step="0.1"
           value={sellQuantity}
           onChange={(e) => setSellQuantity(e.target.value)}
-          placeholder="3"
+          placeholder="1500"
         />
         <button onClick={handleSell} disabled={loading}>
           Sell Asset
@@ -243,7 +243,7 @@ export function DCDPActions() {
   const { contracts, getContractWithSigner } = useContracts();
   const { provider, getSigner } = useBlockchain();
   const [tokenizeOwnerId, setTokenizeOwnerId] = useState('SN91X81J21');
-  const [tokenizeQuantity, setTokenizeQuantity] = useState('50');
+  const [tokenizeQuantity, setTokenizeQuantity] = useState('4000');
   const [tokenizeSymbol, setTokenizeSymbol] = useState('ES3');
   const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
   const [loading, setLoading] = useState(false);
@@ -354,7 +354,7 @@ export function DCDPActions() {
           type="number"
           value={tokenizeQuantity}
           onChange={(e) => setTokenizeQuantity(e.target.value)}
-          placeholder="50"
+          placeholder="4000"
         />
         <label>Symbol</label>
         <input
@@ -405,12 +405,14 @@ export function CombinedActions({ onOnrampSuccess }) {
       {/* Thomas Section */}
       <div className="action-section action-section-thomas">
         <div className="action-section-header">
-          <img 
-            src={`${LOGO_BASE_PATH}thomas-logo.png`} 
-            alt="Thomas" 
-            className="action-section-logo"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+          <div className="action-section-logo-container">
+            <img 
+              src={`${LOGO_BASE_PATH}thomas-logo.png`} 
+              alt="Thomas" 
+              className="action-section-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
           <h4>Thomas</h4>
         </div>
         <ThomasActionsContent onOnrampSuccess={onOnrampSuccess} />
@@ -419,12 +421,14 @@ export function CombinedActions({ onOnrampSuccess }) {
       {/* Tokenized Depository Section */}
       <div className="action-section action-section-dcdp">
         <div className="action-section-header">
-          <img 
-            src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
-            alt="Tokenized Depository" 
-            className="action-section-logo"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+          <div className="action-section-logo-container">
+            <img 
+              src={`${LOGO_BASE_PATH}dcdp-logo.png`} 
+              alt="Tokenized Depository" 
+              className="action-section-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
           <h4>Tokenized Depository</h4>
         </div>
         <DCDPActionsContent />
@@ -433,12 +437,14 @@ export function CombinedActions({ onOnrampSuccess }) {
       {/* AP Section */}
       <div className="action-section action-section-ap">
         <div className="action-section-header">
-          <img 
-            src={`${LOGO_BASE_PATH}ap-logo.png`} 
-            alt="AP" 
-            className="action-section-logo"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+          <div className="action-section-logo-container">
+            <img 
+              src={`${LOGO_BASE_PATH}ap-logo.png`} 
+              alt="AP" 
+              className="action-section-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
           <h4>AP</h4>
         </div>
         <APActionsContent />
@@ -456,11 +462,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const { provider, getSigner } = useBlockchain();
   const { showSuccess, showError } = useToastContext();
   const { getCurrentPrice } = useDatePrice();
-  const [onrampAmount, setOnrampAmount] = useState('1000');
-  const [buyQuantity, setBuyQuantity] = useState('2.5');
+  const [onrampAmount, setOnrampAmount] = useState('10000');
+  const [buyQuantity, setBuyQuantity] = useState('1000');
   // Hardcoded TES3 contract address - always use this address for buy/sell operations
   const buyContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-  const [sellQuantity, setSellQuantity] = useState('1.3');
+  const [sellQuantity, setSellQuantity] = useState('1000');
   // Hardcoded TES3 contract address - always use this address for buy/sell operations
   const sellContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
   const [loading, setLoading] = useState(false);
@@ -939,8 +945,8 @@ function DCDPActionsContent() {
   const { showSuccess, showError } = useToastContext();
   // Hardcoded owner ID - always use SN91X81J21 for tokenization and redemption
   const tokenizeOwnerId = 'SN91X81J21';
-  const [tokenizeQuantity, setTokenizeQuantity] = useState('50');
-  const [redeemQuantity, setRedeemQuantity] = useState('10');
+  const [tokenizeQuantity, setTokenizeQuantity] = useState('4000');
+  const [redeemQuantity, setRedeemQuantity] = useState('3000');
   // Hardcoded symbol - always use ES3 for tokenization and redemption
   const tokenizeSymbol = 'ES3';
   const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
@@ -1247,7 +1253,7 @@ function DCDPActionsContent() {
  */
 function APActionsContent() {
   const { showSuccess, showError } = useToastContext();
-  const [etfQuantity, setEtfQuantity] = useState('100');
+  const [etfQuantity, setEtfQuantity] = useState('5000');
   // Hardcoded symbol - always use ES3 for ETF creation
   const etfSymbol = 'ES3';
   const [loading, setLoading] = useState(false);
@@ -1322,7 +1328,7 @@ function APActionsContent() {
  * Actions: Create ETF
  */
 export function APActions() {
-  const [etfQuantity, setEtfQuantity] = useState('100');
+  const [etfQuantity, setEtfQuantity] = useState('5000');
   const [etfSymbol, setEtfSymbol] = useState('ES3');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -1384,7 +1390,7 @@ export function APActions() {
           type="number"
           value={etfQuantity}
           onChange={(e) => setEtfQuantity(e.target.value)}
-          placeholder="100"
+          placeholder="5000"
         />
         <label>Symbol</label>
         <input
