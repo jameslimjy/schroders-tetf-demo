@@ -10,10 +10,10 @@ import './Toast.css';
  * Toast Component
  * @param {string} message - The message to display
  * @param {string} type - 'success' or 'error'
- * @param {number} duration - Duration in milliseconds (default: 3000)
+ * @param {number} duration - Duration in milliseconds (default: 6000)
  * @param {function} onClose - Callback when toast is dismissed
  */
-export function Toast({ message, type = 'success', duration = 3000, onClose }) {
+export function Toast({ message, type = 'success', duration = 6000, onClose }) {
   const [isVisible, setIsVisible] = useState(true);
   const [isLeaving, setIsLeaving] = useState(false);
 

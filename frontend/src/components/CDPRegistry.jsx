@@ -72,6 +72,11 @@ function CDPRegistry() {
   const [error, setError] = useState(null);
   const [animationKey, setAnimationKey] = useState(0); // Key to trigger phase in/out animation
   const prevRegistryDataRef = useRef(null); // Track previous data to detect changes
+  const isTokenizeInProgressRef = useRef(false); // Track if tokenize is in progress to prevent immediate refresh
+  const isOnrampInProgressRef = useRef(false); // Track if onramp is in progress to prevent immediate refresh
+  const isBuyInProgressRef = useRef(false); // Track if buy is in progress to prevent immediate refresh
+  const isSellInProgressRef = useRef(false); // Track if sell is in progress to prevent immediate refresh
+  const isRedeemInProgressRef = useRef(false); // Track if redeem is in progress to prevent immediate refresh
 
   // Load Depository registry data
   // Reads from localStorage first (if ETF creation has occurred), then falls back to API
@@ -159,9 +164,79 @@ function CDPRegistry() {
     // Initial load
     loadRegistry();
 
-    // Listen for custom event to refresh immediately after ETF creation
+    // Listen for tokenize-started event to prevent immediate refresh during tokenize sequence
+    const handleTokenizeStarted = () => {
+      isTokenizeInProgressRef.current = true;
+    };
+    
+    // Listen for tokenize-completed event to allow refresh again
+    const handleTokenizeCompleted = () => {
+      isTokenizeInProgressRef.current = false;
+    };
+
+    // Listen for onramp-started event to prevent immediate refresh during onramp sequence
+    const handleOnrampStarted = () => {
+      isOnrampInProgressRef.current = true;
+    };
+    
+    // Listen for onramp-completed event to allow refresh again
+    const handleOnrampCompleted = () => {
+      isOnrampInProgressRef.current = false;
+    };
+
+    // Listen for buy-started event to prevent immediate refresh during buy sequence
+    const handleBuyStarted = () => {
+      isBuyInProgressRef.current = true;
+    };
+    
+    // Listen for buy-completed event to allow refresh again
+    const handleBuyCompleted = () => {
+      isBuyInProgressRef.current = false;
+    };
+
+    // Listen for sell-started event to prevent immediate refresh during sell sequence
+    const handleSellStarted = () => {
+      isSellInProgressRef.current = true;
+    };
+    
+    // Listen for sell-completed event to allow refresh again
+    const handleSellCompleted = () => {
+      isSellInProgressRef.current = false;
+    };
+
+    // Listen for redeem-started event to prevent immediate refresh during redeem sequence
+    const handleRedeemStarted = () => {
+      isRedeemInProgressRef.current = true;
+    };
+    
+    // Listen for redeem-completed event to allow refresh again
+    const handleRedeemCompleted = () => {
+      isRedeemInProgressRef.current = false;
+    };
+
+    // Listen for custom event to refresh immediately after ETF creation or tokenize completion
     // This ensures the registry updates right away without waiting for polling
     const handleRegistryUpdate = () => {
+      // Skip refresh if tokenize is in progress - will refresh after animation completes
+      if (isTokenizeInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if onramp is in progress - will refresh after animation completes
+      if (isOnrampInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if buy is in progress - will refresh after animation completes
+      if (isBuyInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if sell is in progress - will refresh after animation completes
+      if (isSellInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if redeem is in progress - will refresh after animation completes
+      if (isRedeemInProgressRef.current) {
+        return;
+      }
       // Trigger phase out/in animation by updating the key
       setAnimationKey(prev => prev + 1);
       // Load registry after a small delay to allow animation to start
@@ -171,14 +246,39 @@ function CDPRegistry() {
     };
     
     window.addEventListener('depository-registry-updated', handleRegistryUpdate);
+    window.addEventListener('tokenize-started', handleTokenizeStarted);
+    window.addEventListener('tokenize-completed', handleTokenizeCompleted);
+    window.addEventListener('onramp-started', handleOnrampStarted);
+    window.addEventListener('onramp-completed', handleOnrampCompleted);
+    window.addEventListener('buy-started', handleBuyStarted);
+    window.addEventListener('buy-completed', handleBuyCompleted);
+    window.addEventListener('sell-started', handleSellStarted);
+    window.addEventListener('sell-completed', handleSellCompleted);
+    window.addEventListener('redeem-started', handleRedeemStarted);
+    window.addEventListener('redeem-completed', handleRedeemCompleted);
 
     // Set up polling to refresh data periodically (fallback)
     // This ensures we get updates even if events are missed
-    const interval = setInterval(loadRegistry, 5000); // Refresh every 5 seconds
+    // Skip polling refresh if tokenize, onramp, buy, sell, or redeem is in progress
+    const interval = setInterval(() => {
+      if (!isTokenizeInProgressRef.current && !isOnrampInProgressRef.current && !isBuyInProgressRef.current && !isSellInProgressRef.current && !isRedeemInProgressRef.current) {
+        loadRegistry();
+      }
+    }, 5000); // Refresh every 5 seconds
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('cdp-registry-updated', handleRegistryUpdate);
+      window.removeEventListener('tokenize-started', handleTokenizeStarted);
+      window.removeEventListener('tokenize-completed', handleTokenizeCompleted);
+      window.removeEventListener('onramp-started', handleOnrampStarted);
+      window.removeEventListener('onramp-completed', handleOnrampCompleted);
+      window.removeEventListener('buy-started', handleBuyStarted);
+      window.removeEventListener('buy-completed', handleBuyCompleted);
+      window.removeEventListener('sell-started', handleSellStarted);
+      window.removeEventListener('sell-completed', handleSellCompleted);
+      window.removeEventListener('redeem-started', handleRedeemStarted);
+      window.removeEventListener('redeem-completed', handleRedeemCompleted);
     };
   }, []);
 

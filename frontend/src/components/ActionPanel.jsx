@@ -494,6 +494,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
 
       const amount = parseTokenAmount(onrampAmount);
       
+      // Dispatch onramp-started event immediately to prevent components from refreshing
+      // This flag prevents immediate refresh when transaction completes, Transfer events fire, or blocks are mined
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('onramp-started'));
+      
       // Get stablecoin provider signer (Account #0 / Admin)
       const stablecoinSigner = getSigner(ACCOUNTS.STABLECOIN_PROVIDER);
       const sgdc = getContractWithSigner('sgdc', stablecoinSigner);
@@ -507,9 +512,28 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       
       // Trigger network visualizer animation after successful onramp
       // This will show the cash flow and stablecoin flow animation
+      // Animation duration is 3.5 seconds (3500ms)
       if (onOnrampSuccess) {
         onOnrampSuccess();
       }
+      
+      // Refresh registries 2 seconds after animation completes
+      // Animation takes 3.5 seconds, so total delay is 5.5 seconds
+      // This ensures the glow animation finishes before registries refresh
+      setTimeout(() => {
+        // Clear the onramp-started flag by dispatching onramp-completed event
+        // This allows components to resume normal refresh behavior
+        window.dispatchEvent(new CustomEvent('onramp-completed'));
+        
+        // Trigger custom event to refresh Depository Registry component (CDP Registry)
+        window.dispatchEvent(new CustomEvent('depository-registry-updated'));
+        
+        // Trigger custom event to refresh Tokenized Depository Registry component (dCDP Registry)
+        window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+        
+        // Trigger custom event to refresh Block Explorer
+        window.dispatchEvent(new CustomEvent('block-explorer-refresh'));
+      }, 5500); // 3500ms (animation) + 2000ms (delay) = 5500ms
     } catch (err) {
       console.error('Onramp error:', err);
       // Only show error if it hasn't been shown already (wallet check)
@@ -532,6 +556,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
+      // Dispatch buy-started event immediately to prevent components from refreshing
+      // This flag prevents immediate refresh when transaction completes, Transfer events fire, or blocks are mined
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('buy-started'));
+      
       // Parse quantity (e.g., 2.5 TES3)
       // Contract address is hardcoded to TES3 contract: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
       const quantity = parseTokenAmount(buyQuantity);
@@ -671,10 +700,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       
       showSuccess('Buy successful!');
       
-      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
-      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
-      
       // Trigger network visualizer animation: Thomas → Digital Exchange → Tokenized Depository, then reverse
+      // Animation duration is 3.5 seconds (3500ms)
       window.dispatchEvent(new CustomEvent('buy-asset-executed', {
         detail: {
           quantity: buyQuantity,
@@ -682,6 +709,24 @@ function ThomasActionsContent({ onOnrampSuccess }) {
           sgdcCost: formatTokenAmount(sgdcCost)
         }
       }));
+      
+      // Refresh registries 2 seconds after animation completes
+      // Animation takes 3.5 seconds, so total delay is 5.5 seconds
+      // This ensures the glow animation finishes before registries refresh
+      // Note: CDP Registry (Depository Registry) does NOT refresh for Buy/Sell as these are onchain token transfers
+      // that don't affect the offchain traditional securities registry
+      setTimeout(() => {
+        // Clear the buy-started flag by dispatching buy-completed event
+        // This allows components to resume normal refresh behavior
+        window.dispatchEvent(new CustomEvent('buy-completed'));
+        
+        // Trigger custom event to refresh Tokenized Depository Registry component (dCDP Registry)
+        // This shows updated onchain token balances after the buy transaction
+        window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+        
+        // Trigger custom event to refresh Block Explorer
+        window.dispatchEvent(new CustomEvent('block-explorer-refresh'));
+      }, 5500); // 3500ms (animation) + 2000ms (delay) = 5500ms
     } catch (err) {
       console.error('Buy error:', err);
       showError(err.message || 'Failed to buy asset');
@@ -701,6 +746,11 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
+      // Dispatch sell-started event immediately to prevent components from refreshing
+      // This flag prevents immediate refresh when transaction completes, Transfer events fire, or blocks are mined
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('sell-started'));
+      
       // Parse quantity (e.g., 1.3 TES3)
       // Contract address is hardcoded to TES3 contract: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
       const quantity = parseTokenAmount(sellQuantity);
@@ -858,10 +908,8 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       
       showSuccess('Sell successful!');
       
-      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
-      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
-      
       // Trigger network visualizer animation: Thomas → Digital Exchange → Tokenized Depository, then reverse (same as buy)
+      // Animation duration is 3.5 seconds (3500ms)
       window.dispatchEvent(new CustomEvent('buy-asset-executed', {
         detail: {
           quantity: sellQuantity,
@@ -869,6 +917,24 @@ function ThomasActionsContent({ onOnrampSuccess }) {
           sgdcCost: formatTokenAmount(sgdcProceeds)
         }
       }));
+      
+      // Refresh registries 2 seconds after animation completes
+      // Animation takes 3.5 seconds, so total delay is 5.5 seconds
+      // This ensures the glow animation finishes before registries refresh
+      // Note: CDP Registry (Depository Registry) does NOT refresh for Buy/Sell as these are onchain token transfers
+      // that don't affect the offchain traditional securities registry
+      setTimeout(() => {
+        // Clear the sell-started flag by dispatching sell-completed event
+        // This allows components to resume normal refresh behavior
+        window.dispatchEvent(new CustomEvent('sell-completed'));
+        
+        // Trigger custom event to refresh Tokenized Depository Registry component (dCDP Registry)
+        // This shows updated onchain token balances after the sell transaction
+        window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+        
+        // Trigger custom event to refresh Block Explorer
+        window.dispatchEvent(new CustomEvent('block-explorer-refresh'));
+      }, 5500); // 3500ms (animation) + 2000ms (delay) = 5500ms
     } catch (err) {
       console.error('Sell error:', err);
       showError(err.message || 'Failed to sell asset');
@@ -992,6 +1058,11 @@ function DCDPActionsContent() {
       const adminSigner = getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
       
+      // Dispatch tokenize-started event immediately to prevent components from refreshing
+      // This flag prevents immediate refresh when transaction completes, Transfer events fire, or blocks are mined
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('tokenize-started'));
+      
       // Call Tokenized Depository.tokenize() function with owner ID (not unique identifier)
       // This mints TES3 tokens to the owner's registered wallet address
       console.log(`[Tokenize] Calling Tokenized Depository.tokenize(${ownerId}, ${quantity.toString()}, ${tokenizeSymbol})...`);
@@ -1005,12 +1076,9 @@ function DCDPActionsContent() {
       // Show success message
       showSuccess('Tokenization successful!');
       
-      // Trigger custom event to refresh Depository Registry component
-      // This ensures the registry updates immediately to show decreased balance
-      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
-      
-      // Trigger network visualizer animation for tokenization
+      // Trigger network visualizer animation for tokenization immediately
       // This creates a glow effect and particle animation: AP → Depository → Tokenized Depository
+      // Animation duration is 3.5 seconds (3500ms)
       window.dispatchEvent(new CustomEvent('tokenize-executed', { 
         detail: { 
           quantity, 
@@ -1018,6 +1086,24 @@ function DCDPActionsContent() {
           ownerId
         } 
       }));
+      
+      // Refresh registries 2 seconds after animation completes
+      // Animation takes 3.5 seconds, so total delay is 5.5 seconds
+      // This ensures the glow animation finishes before registries refresh
+      setTimeout(() => {
+        // Clear the tokenize-started flag by dispatching tokenize-completed event
+        // This allows components to resume normal refresh behavior
+        window.dispatchEvent(new CustomEvent('tokenize-completed'));
+        
+        // Trigger custom event to refresh Depository Registry component (CDP Registry)
+        window.dispatchEvent(new CustomEvent('depository-registry-updated'));
+        
+        // Trigger custom event to refresh Tokenized Depository Registry component (dCDP Registry)
+        window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+        
+        // Trigger custom event to refresh Block Explorer
+        window.dispatchEvent(new CustomEvent('block-explorer-refresh'));
+      }, 5500); // 3500ms (animation) + 2000ms (delay) = 5500ms
       
     } catch (err) {
       console.error('Tokenize error:', err);
@@ -1044,6 +1130,11 @@ function DCDPActionsContent() {
         throw new Error('Provider not connected');
       }
 
+      // Dispatch redeem-started event immediately to prevent components from refreshing
+      // This flag prevents immediate refresh when transaction completes, Transfer events fire, or blocks are mined
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('redeem-started'));
+      
       // Map unique identifier (SN code) to owner ID
       // User inputs unique identifier (e.g., SN91X81J21), but contract needs owner ID (e.g., AP)
       const ownerId = UNIQUE_ID_TO_OWNER_ID[tokenizeOwnerId.toUpperCase()] || tokenizeOwnerId;
@@ -1094,15 +1185,9 @@ function DCDPActionsContent() {
       // Show success message
       showSuccess('Redemption successful!');
       
-      // Trigger custom event to refresh Depository Registry component
-      // This ensures the registry updates immediately to show increased balance
-      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
-      
-      // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
-      window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
-      
       // Trigger network visualizer animation for redemption
       // This creates a glow effect and particle animation: Tokenized Depository → Depository (reverse of tokenize)
+      // Animation duration is 3.5 seconds (3500ms)
       window.dispatchEvent(new CustomEvent('redeem-executed', { 
         detail: { 
           quantity, 
@@ -1110,6 +1195,24 @@ function DCDPActionsContent() {
           ownerId
         } 
       }));
+      
+      // Refresh registries 2 seconds after animation completes
+      // Animation takes 3.5 seconds, so total delay is 5.5 seconds
+      // This ensures the glow animation finishes before registries refresh
+      setTimeout(() => {
+        // Clear the redeem-started flag by dispatching redeem-completed event
+        // This allows components to resume normal refresh behavior
+        window.dispatchEvent(new CustomEvent('redeem-completed'));
+        
+        // Trigger custom event to refresh Depository Registry component (CDP Registry)
+        window.dispatchEvent(new CustomEvent('depository-registry-updated'));
+        
+        // Trigger custom event to refresh Tokenized Depository Registry component (dCDP Registry)
+        window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
+        
+        // Trigger custom event to refresh Block Explorer
+        window.dispatchEvent(new CustomEvent('block-explorer-refresh'));
+      }, 5500); // 3500ms (animation) + 2000ms (delay) = 5500ms
       
     } catch (err) {
       console.error('Redeem error:', err);
@@ -1279,18 +1382,19 @@ function APActionsContent() {
       // Show success message
       showSuccess('Creation successful!');
       
-      // Trigger custom event to refresh Depository Registry component
-      // This ensures the registry updates immediately without waiting for polling
-      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
-      
       // Trigger network visualizer animation for Depository and AP nodes
       // This creates a glow effect around Depository and AP blocks to show ETF creation
+      // Animation duration is 2.5 seconds
       window.dispatchEvent(new CustomEvent('etf-created', { 
         detail: { 
           quantity, 
           symbol: etfSymbol 
         } 
       }));
+      
+      // Trigger custom event to refresh Depository Registry component immediately
+      // The registry will refresh once immediately after ETF creation
+      window.dispatchEvent(new CustomEvent('depository-registry-updated'));
       
     } catch (err) {
       console.error('Create ETF error:', err);

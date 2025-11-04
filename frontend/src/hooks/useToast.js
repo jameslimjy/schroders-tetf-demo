@@ -18,9 +18,9 @@ export function useToast() {
    * Show a toast notification
    * @param {string} message - The message to display
    * @param {string} type - 'success' or 'error' (default: 'success')
-   * @param {number} duration - Duration in milliseconds (default: 3000)
+   * @param {number} duration - Duration in milliseconds (default: 6000)
    */
-  const showToast = useCallback((message, type = 'success', duration = 3000) => {
+  const showToast = useCallback((message, type = 'success', duration = 6000) => {
     const id = ++toastIdCounter;
     const newToast = {
       id,
@@ -43,18 +43,18 @@ export function useToast() {
   /**
    * Show success toast
    * @param {string} message - The success message
-   * @param {number} duration - Duration in milliseconds (default: 3000)
+   * @param {number} duration - Duration in milliseconds (default: 6000)
    */
-  const showSuccess = useCallback((message, duration = 3000) => {
+  const showSuccess = useCallback((message, duration = 6000) => {
     showToast(message, 'success', duration);
   }, [showToast]);
 
   /**
    * Show error toast
    * @param {string} message - The error message
-   * @param {number} duration - Duration in milliseconds (default: 4000)
+   * @param {number} duration - Duration in milliseconds (default: 7000)
    */
-  const showError = useCallback((message, duration = 4000) => {
+  const showError = useCallback((message, duration = 7000) => {
     showToast(message, 'error', duration);
   }, [showToast]);
 

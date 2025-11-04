@@ -160,6 +160,16 @@ function DCDPRegistry() {
 
   // Track if wallet creation is in progress to prevent immediate refresh
   const isWalletCreationInProgressRef = useRef(false);
+  // Track if tokenize is in progress to prevent immediate refresh
+  const isTokenizeInProgressRef = useRef(false);
+  // Track if onramp is in progress to prevent immediate refresh
+  const isOnrampInProgressRef = useRef(false);
+  // Track if buy is in progress to prevent immediate refresh
+  const isBuyInProgressRef = useRef(false);
+  // Track if sell is in progress to prevent immediate refresh
+  const isSellInProgressRef = useRef(false);
+  // Track if redeem is in progress to prevent immediate refresh
+  const isRedeemInProgressRef = useRef(false);
 
   // Try to resolve owner IDs to addresses via dCDP contract
   // Skip if wallet creation is in progress (prevents immediate refresh)
@@ -371,8 +381,8 @@ function DCDPRegistry() {
       // Set up polling to refresh balances periodically
       // Use refs to prevent this effect from re-running when callbacks change
       const interval = setInterval(() => {
-        // Skip polling refresh during wallet creation sequence
-        if (!isWalletCreationInProgressRef.current) {
+        // Skip polling refresh during wallet creation, tokenize, onramp, buy, sell, or redeem sequence
+        if (!isWalletCreationInProgressRef.current && !isTokenizeInProgressRef.current && !isOnrampInProgressRef.current && !isBuyInProgressRef.current && !isSellInProgressRef.current && !isRedeemInProgressRef.current) {
           resolveAddressesRef.current().then(() => {
             loadBalancesRef.current();
           });
@@ -394,6 +404,31 @@ function DCDPRegistry() {
     if (!isReady || !contracts.sgdc || !contracts.tes3 || !contracts.dcdp) return;
 
     const handleTransfer = (from, to, amount, event) => {
+      // Skip refresh if tokenize is in progress - will refresh after animation completes
+      if (isTokenizeInProgressRef.current) {
+        console.log('[DCDPRegistry] Transfer event detected but tokenize in progress, skipping refresh');
+        return;
+      }
+      // Skip refresh if onramp is in progress - will refresh after animation completes
+      if (isOnrampInProgressRef.current) {
+        console.log('[DCDPRegistry] Transfer event detected but onramp in progress, skipping refresh');
+        return;
+      }
+      // Skip refresh if buy is in progress - will refresh after animation completes
+      if (isBuyInProgressRef.current) {
+        console.log('[DCDPRegistry] Transfer event detected but buy in progress, skipping refresh');
+        return;
+      }
+      // Skip refresh if sell is in progress - will refresh after animation completes
+      if (isSellInProgressRef.current) {
+        console.log('[DCDPRegistry] Transfer event detected but sell in progress, skipping refresh');
+        return;
+      }
+      // Skip refresh if redeem is in progress - will refresh after animation completes
+      if (isRedeemInProgressRef.current) {
+        console.log('[DCDPRegistry] Transfer event detected but redeem in progress, skipping refresh');
+        return;
+      }
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -402,12 +437,24 @@ function DCDPRegistry() {
       // Trigger animation first, then update balances during the animation
       // This creates a smoother effect where the balance updates mid-animation
       debounceTimerRef.current = setTimeout(() => {
+        // Double-check flags before refreshing (defensive check)
+        if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+          console.log('[DCDPRegistry] Transfer event debounce - action in progress, skipping refresh');
+          debounceTimerRef.current = null;
+          return;
+        }
         // Trigger animation key update first - this starts the phase out animation
         setAnimationKey(prev => prev + 1);
         
         // Wait for animation to start (phase out), then load balances mid-animation
         // The animation duration is ~0.5s, so we update balances at ~0.35s
         setTimeout(async () => {
+          // Triple-check flags before actually loading balances (defensive check)
+          if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+            console.log('[DCDPRegistry] Transfer event balance load - action in progress, skipping refresh');
+            debounceTimerRef.current = null;
+            return;
+          }
           // Load balances mid-animation - this will cause the number to change during phase in
           await loadBalancesRef.current();
           debounceTimerRef.current = null;
@@ -426,6 +473,11 @@ function DCDPRegistry() {
     };
 
     const handleTokenized = () => {
+      // Skip refresh if tokenize, onramp, buy, sell, or redeem is in progress - will refresh after animation completes
+      if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+        console.log('[DCDPRegistry] Tokenized event detected but action in progress, skipping refresh');
+        return;
+      }
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -434,11 +486,23 @@ function DCDPRegistry() {
       // Refresh balances when tokenization occurs (TES3 tokens are minted)
       // Trigger animation first, then update balances during animation
       debounceTimerRef.current = setTimeout(() => {
+        // Double-check flags before refreshing (defensive check)
+        if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+          console.log('[DCDPRegistry] Tokenized event debounce - action in progress, skipping refresh');
+          debounceTimerRef.current = null;
+          return;
+        }
         // Trigger animation first
         setAnimationKey(prev => prev + 1);
         
         // Update balances mid-animation
         setTimeout(async () => {
+          // Triple-check flags before actually loading balances (defensive check)
+          if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+            console.log('[DCDPRegistry] Tokenized event balance load - action in progress, skipping refresh');
+            debounceTimerRef.current = null;
+            return;
+          }
           await loadBalancesRef.current();
           debounceTimerRef.current = null;
         }, 350); // Update during animation
@@ -461,6 +525,11 @@ function DCDPRegistry() {
     // Listen to Redeemed events from dCDP (when redeem() is called)
     // This handles the redemption flow where TES3 tokens are burned
     const handleRedeemed = () => {
+      // Skip refresh if tokenize, onramp, buy, sell, or redeem is in progress - will refresh after animation completes
+      if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+        console.log('[DCDPRegistry] Redeemed event detected but action in progress, skipping refresh');
+        return;
+      }
       // Clear any pending updates
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -469,11 +538,23 @@ function DCDPRegistry() {
       // Refresh balances when redemption occurs (TES3 tokens are burned)
       // Trigger animation first, then update balances during animation
       debounceTimerRef.current = setTimeout(() => {
+        // Double-check flags before refreshing (defensive check)
+        if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+          console.log('[DCDPRegistry] Redeemed event debounce - action in progress, skipping refresh');
+          debounceTimerRef.current = null;
+          return;
+        }
         // Trigger animation first
         setAnimationKey(prev => prev + 1);
         
         // Update balances mid-animation
         setTimeout(async () => {
+          // Triple-check flags before actually loading balances (defensive check)
+          if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+            console.log('[DCDPRegistry] Redeemed event balance load - action in progress, skipping refresh');
+            debounceTimerRef.current = null;
+            return;
+          }
           await loadBalancesRef.current();
           debounceTimerRef.current = null;
         }, 350); // Update during animation
@@ -522,22 +603,22 @@ function DCDPRegistry() {
         clearTimeout(debounceTimerRef.current);
       }
       
-      // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 1s before refresh
-      // Refresh 1 second after animation finishes
-      // Animation duration is 3.5 seconds, so wait 3.5s + 1s = 4.5s after wallet-created event
+      // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 2s before refresh
+      // Refresh 2 seconds after animation finishes
+      // Animation duration is 3.5 seconds, so wait 3.5s + 2s = 5.5s after wallet-created event
       // (The wallet-created event is already delayed 2s after toast in ActionPanel)
       debounceTimerRef.current = setTimeout(async () => {
         // Trigger animation key update to show phase in/out animation
         // This makes it obvious that a new account (THOMAS) has been added
         setAnimationKey(prev => prev + 1);
         
-        // Refresh addresses and balances simultaneously with Block Explorer update
+        // Refresh addresses and balances simultaneously with Block Explorer and CDP Registry updates
         await resolveAddressesRef.current();
         loadBalancesRef.current();
         debounceTimerRef.current = null;
         // Reset flag after refresh completes
         isWalletCreationInProgressRef.current = false;
-      }, 4500); // 3.5s (animation) + 1s (post-animation wait) = 4.5s after wallet-created event
+      }, 5500); // 3.5s (animation) + 2s (post-animation wait) = 5.5s after wallet-created event
     };
 
     window.addEventListener('wallet-created', handleWalletCreatedWindowEvent);
@@ -550,16 +631,143 @@ function DCDPRegistry() {
     };
   }, []); // Empty dependencies - setup only once
 
+  // Listen for tokenize-started and tokenize-completed events
+  useEffect(() => {
+    const handleTokenizeStarted = () => {
+      isTokenizeInProgressRef.current = true;
+    };
+    
+    const handleTokenizeCompleted = () => {
+      isTokenizeInProgressRef.current = false;
+    };
+    
+    window.addEventListener('tokenize-started', handleTokenizeStarted);
+    window.addEventListener('tokenize-completed', handleTokenizeCompleted);
+    
+    return () => {
+      window.removeEventListener('tokenize-started', handleTokenizeStarted);
+      window.removeEventListener('tokenize-completed', handleTokenizeCompleted);
+    };
+  }, []);
+
+  // Listen for onramp-started and onramp-completed events
+  useEffect(() => {
+    const handleOnrampStarted = () => {
+      isOnrampInProgressRef.current = true;
+    };
+    
+    const handleOnrampCompleted = () => {
+      isOnrampInProgressRef.current = false;
+    };
+    
+    window.addEventListener('onramp-started', handleOnrampStarted);
+    window.addEventListener('onramp-completed', handleOnrampCompleted);
+    
+    return () => {
+      window.removeEventListener('onramp-started', handleOnrampStarted);
+      window.removeEventListener('onramp-completed', handleOnrampCompleted);
+    };
+  }, []);
+
+  // Listen for buy-started and buy-completed events
+  useEffect(() => {
+    const handleBuyStarted = () => {
+      isBuyInProgressRef.current = true;
+    };
+    
+    const handleBuyCompleted = () => {
+      isBuyInProgressRef.current = false;
+    };
+    
+    window.addEventListener('buy-started', handleBuyStarted);
+    window.addEventListener('buy-completed', handleBuyCompleted);
+    
+    return () => {
+      window.removeEventListener('buy-started', handleBuyStarted);
+      window.removeEventListener('buy-completed', handleBuyCompleted);
+    };
+  }, []);
+
+  // Listen for sell-started and sell-completed events
+  useEffect(() => {
+    const handleSellStarted = () => {
+      isSellInProgressRef.current = true;
+    };
+    
+    const handleSellCompleted = () => {
+      isSellInProgressRef.current = false;
+    };
+    
+    window.addEventListener('sell-started', handleSellStarted);
+    window.addEventListener('sell-completed', handleSellCompleted);
+    
+    return () => {
+      window.removeEventListener('sell-started', handleSellStarted);
+      window.removeEventListener('sell-completed', handleSellCompleted);
+    };
+  }, []);
+
+  // Listen for redeem-started and redeem-completed events
+  useEffect(() => {
+    const handleRedeemStarted = () => {
+      isRedeemInProgressRef.current = true;
+    };
+    
+    const handleRedeemCompleted = () => {
+      isRedeemInProgressRef.current = false;
+    };
+    
+    window.addEventListener('redeem-started', handleRedeemStarted);
+    window.addEventListener('redeem-completed', handleRedeemCompleted);
+    
+    return () => {
+      window.removeEventListener('redeem-started', handleRedeemStarted);
+      window.removeEventListener('redeem-completed', handleRedeemCompleted);
+    };
+  }, []);
+
   // Listen for registry update events (triggered when tokenize is called)
   useEffect(() => {
     const handleRegistryUpdate = () => {
+      // Skip refresh if tokenize is in progress - will refresh after animation completes
+      // (The tokenize-completed event is dispatched before this event, so flag should be cleared)
+      // But check anyway to be safe
+      if (isTokenizeInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if onramp is in progress - will refresh after animation completes
+      if (isOnrampInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if buy is in progress - will refresh after animation completes
+      if (isBuyInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if sell is in progress - will refresh after animation completes
+      if (isSellInProgressRef.current) {
+        return;
+      }
+      // Skip refresh if redeem is in progress - will refresh after animation completes
+      if (isRedeemInProgressRef.current) {
+        return;
+      }
       // Trigger phase out/in animation by updating the key
       setAnimationKey(prev => prev + 1);
       // Refresh balances after a delay to ensure blockchain state has updated
       // The delay allows the transaction to be mined and state to propagate
       setTimeout(() => {
+        // Double-check flags before refreshing (defensive check)
+        if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+          console.log('[DCDPRegistry] Registry update event - action in progress, skipping refresh');
+          return;
+        }
         // Refresh addresses first in case they changed, then balances
         resolveAddressesRef.current().then(() => {
+          // Triple-check flags before loading balances (defensive check)
+          if (isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
+            console.log('[DCDPRegistry] Registry update balance load - action in progress, skipping refresh');
+            return;
+          }
           loadBalancesRef.current();
         });
       }, 500);

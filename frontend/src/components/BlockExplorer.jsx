@@ -108,7 +108,7 @@ function BlockExplorer() {
   }, [SETDCDP_SELECTOR]);
 
   // Load all transactions from recent blocks
-  // Loads up to 100 blocks to capture all past transactions
+  // Loads up to 50 blocks to capture all past transactions (reduced from 100 for better performance)
   // Removed transaction limit - shows all transactions with scrollbar
   const loadTransactions = useCallback(async () => {
     if (!isConnected || !provider || !blockNumber) return;
@@ -118,8 +118,9 @@ function BlockExplorer() {
 
       // Get recent blocks (up to 100 blocks to capture all past transactions)
       // This ensures we show all transactions, not just the most recent ones
+      // Reduced to 50 blocks for faster loading while still showing sufficient history
       const recentBlocks = [];
-      const maxBlocksToLoad = 100; // Load up to 100 blocks to capture history
+      const maxBlocksToLoad = 50; // Load up to 50 blocks (reduced from 100 for better performance)
       for (let i = 0; i < maxBlocksToLoad && blockNumber - i >= 0; i++) {
         try {
           const block = await provider.getBlock(blockNumber - i, true);
@@ -262,6 +263,12 @@ function BlockExplorer() {
 
   // Track if we're in the middle of a wallet creation sequence to prevent immediate refresh
   const isWalletCreationInProgressRef = useRef(false);
+  // Track if tokenize is in progress to prevent immediate refresh
+  const isTokenizeInProgressRef = useRef(false);
+  const isOnrampInProgressRef = useRef(false);
+  const isBuyInProgressRef = useRef(false);
+  const isSellInProgressRef = useRef(false);
+  const isRedeemInProgressRef = useRef(false);
 
   // Listen for wallet creation start event (dispatched immediately when button is pressed)
   // This prevents immediate refresh when transaction is mined
@@ -278,12 +285,12 @@ function BlockExplorer() {
   }, []);
 
   // Load transactions when block number changes
-  // Skip immediate refresh if wallet creation is in progress
+  // Skip immediate refresh if wallet creation or tokenize is in progress
   useEffect(() => {
     if (isConnected && blockNumber !== null) {
-      // Skip immediate refresh during wallet creation sequence
-      // The wallet-created window event will trigger the delayed refresh instead
-      if (isWalletCreationInProgressRef.current) {
+      // Skip immediate refresh during wallet creation or tokenize sequence
+      // The wallet-created or block-explorer-refresh window events will trigger the delayed refresh instead
+      if (isWalletCreationInProgressRef.current || isTokenizeInProgressRef.current || isOnrampInProgressRef.current || isBuyInProgressRef.current || isSellInProgressRef.current || isRedeemInProgressRef.current) {
         return;
       }
       loadTransactions();
@@ -295,7 +302,7 @@ function BlockExplorer() {
   const walletCreatedDelayRef = useRef(null);
 
   // Listen for wallet creation events to delay Block Explorer update
-  // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 1s before refresh
+  // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 2s before refresh
   useEffect(() => {
     const handleWalletCreated = () => {
       // Mark that wallet creation is in progress to prevent immediate block refreshes
@@ -306,16 +313,17 @@ function BlockExplorer() {
         clearTimeout(walletCreatedDelayRef.current);
       }
       
-      // Refresh 1 second after animation finishes
-      // Animation duration is 3.5 seconds, so wait 3.5s + 1s = 4.5s after wallet-created event
+      // Refresh 2 seconds after animation finishes (same timing as other components)
+      // Animation duration is 3.5 seconds, so wait 3.5s + 2s = 5.5s after wallet-created event
       // (The wallet-created event is already delayed 2s after toast in ActionPanel)
-      walletCreatedDelayRef.current = setTimeout(() => {
-        // Refresh transactions simultaneously with dCDP Registry update
-        loadTransactionsRef.current();
+      walletCreatedDelayRef.current = setTimeout(async () => {
+        // Refresh transactions simultaneously with dCDP Registry and CDP Registry updates
+        // Await the load to ensure it completes before resetting flags
+        await loadTransactionsRef.current();
         walletCreatedDelayRef.current = null;
         // Reset flag after refresh completes
         isWalletCreationInProgressRef.current = false;
-      }, 4500); // 3.5s (animation) + 1s (post-animation wait) = 4.5s after wallet-created event
+      }, 5500); // 3.5s (animation) + 2s (post-animation wait) = 5.5s after wallet-created event
     };
 
     window.addEventListener('wallet-created', handleWalletCreated);
@@ -328,15 +336,156 @@ function BlockExplorer() {
     };
   }, []); // Empty dependencies - setup only once
 
+  // Listen for tokenize-started and tokenize-completed events
+  useEffect(() => {
+    const handleTokenizeStarted = () => {
+      isTokenizeInProgressRef.current = true;
+    };
+    
+    const handleTokenizeCompleted = () => {
+      isTokenizeInProgressRef.current = false;
+    };
+    
+    window.addEventListener('tokenize-started', handleTokenizeStarted);
+    window.addEventListener('tokenize-completed', handleTokenizeCompleted);
+    
+    return () => {
+      window.removeEventListener('tokenize-started', handleTokenizeStarted);
+      window.removeEventListener('tokenize-completed', handleTokenizeCompleted);
+    };
+  }, []); // Empty dependencies - setup only once
+
+  // Listen for onramp-started and onramp-completed events
+  useEffect(() => {
+    const handleOnrampStarted = () => {
+      isOnrampInProgressRef.current = true;
+    };
+    
+    const handleOnrampCompleted = () => {
+      isOnrampInProgressRef.current = false;
+    };
+    
+    window.addEventListener('onramp-started', handleOnrampStarted);
+    window.addEventListener('onramp-completed', handleOnrampCompleted);
+    
+    return () => {
+      window.removeEventListener('onramp-started', handleOnrampStarted);
+      window.removeEventListener('onramp-completed', handleOnrampCompleted);
+    };
+  }, []); // Empty dependencies - setup only once
+
+  // Listen for buy-started and buy-completed events
+  useEffect(() => {
+    const handleBuyStarted = () => {
+      isBuyInProgressRef.current = true;
+    };
+    
+    const handleBuyCompleted = () => {
+      isBuyInProgressRef.current = false;
+    };
+    
+    window.addEventListener('buy-started', handleBuyStarted);
+    window.addEventListener('buy-completed', handleBuyCompleted);
+    
+    return () => {
+      window.removeEventListener('buy-started', handleBuyStarted);
+      window.removeEventListener('buy-completed', handleBuyCompleted);
+    };
+  }, []); // Empty dependencies - setup only once
+
+  // Listen for sell-started and sell-completed events
+  useEffect(() => {
+    const handleSellStarted = () => {
+      isSellInProgressRef.current = true;
+    };
+    
+    const handleSellCompleted = () => {
+      isSellInProgressRef.current = false;
+    };
+    
+    window.addEventListener('sell-started', handleSellStarted);
+    window.addEventListener('sell-completed', handleSellCompleted);
+    
+    return () => {
+      window.removeEventListener('sell-started', handleSellStarted);
+      window.removeEventListener('sell-completed', handleSellCompleted);
+    };
+  }, []); // Empty dependencies - setup only once
+
+  // Listen for redeem-started and redeem-completed events
+  useEffect(() => {
+    const handleRedeemStarted = () => {
+      isRedeemInProgressRef.current = true;
+    };
+    
+    const handleRedeemCompleted = () => {
+      isRedeemInProgressRef.current = false;
+    };
+    
+    window.addEventListener('redeem-started', handleRedeemStarted);
+    window.addEventListener('redeem-completed', handleRedeemCompleted);
+    
+    return () => {
+      window.removeEventListener('redeem-started', handleRedeemStarted);
+      window.removeEventListener('redeem-completed', handleRedeemCompleted);
+    };
+  }, []); // Empty dependencies - setup only once
+
+  // Listen for block explorer refresh events (triggered after tokenize animation completes)
+  // This ensures Block Explorer refreshes 2 seconds after the network visualizer glow animation finishes
+  useEffect(() => {
+    const handleBlockExplorerRefresh = () => {
+      // Refresh transactions when refresh event is received
+      // This is called 5.5 seconds after tokenize button is pressed
+      // (3.5s animation + 2s delay)
+      if (loadTransactionsRef.current) {
+        loadTransactionsRef.current();
+      }
+    };
+
+    window.addEventListener('block-explorer-refresh', handleBlockExplorerRefresh);
+
+    return () => {
+      window.removeEventListener('block-explorer-refresh', handleBlockExplorerRefresh);
+    };
+  }, []); // Empty dependencies - setup only once
+
   // Set up block listener for real-time updates
   // Use ref for callback to prevent infinite loops when callback changes
   useEffect(() => {
     if (!provider) return;
 
     const blockListener = provider.on('block', () => {
-      // Skip immediate update if wallet creation delay is active
+      // Skip immediate update if wallet creation is in progress
       // This prevents Block Explorer from updating during the network visualizer animation
-      if (walletCreatedDelayRef.current) {
+      // Check both flags: walletCreatedDelayRef (set when wallet-created event received) 
+      // and isWalletCreationInProgressRef (set immediately when button is pressed)
+      if (walletCreatedDelayRef.current || isWalletCreationInProgressRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
+      // Also skip if tokenize is in progress
+      if (isTokenizeInProgressRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
+      // Also skip if onramp is in progress
+      if (isOnrampInProgressRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
+      // Also skip if buy is in progress
+      if (isBuyInProgressRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
+      // Also skip if sell is in progress
+      if (isSellInProgressRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
+      // Also skip if redeem is in progress
+      if (isRedeemInProgressRef.current) {
         return; // Skip this update, delayed update will happen after animation
       }
       
