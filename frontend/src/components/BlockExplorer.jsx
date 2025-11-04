@@ -132,12 +132,73 @@ function BlockExplorer() {
     loadTransactionsRef.current = loadTransactions;
   }, [loadTransactions]);
 
+  // Track if we're in the middle of a wallet creation sequence to prevent immediate refresh
+  const isWalletCreationInProgressRef = useRef(false);
+
+  // Listen for wallet creation start event (dispatched immediately when button is pressed)
+  // This prevents immediate refresh when transaction is mined
+  useEffect(() => {
+    const handleWalletCreationStart = () => {
+      isWalletCreationInProgressRef.current = true;
+    };
+
+    window.addEventListener('wallet-creation-started', handleWalletCreationStart);
+
+    return () => {
+      window.removeEventListener('wallet-creation-started', handleWalletCreationStart);
+    };
+  }, []);
+
   // Load transactions when block number changes
+  // Skip immediate refresh if wallet creation is in progress
   useEffect(() => {
     if (isConnected && blockNumber !== null) {
+      // Skip immediate refresh during wallet creation sequence
+      // The wallet-created window event will trigger the delayed refresh instead
+      if (isWalletCreationInProgressRef.current) {
+        return;
+      }
       loadTransactions();
     }
   }, [blockNumber, isConnected, loadTransactions]);
+
+  // Track if wallet creation just happened to delay Block Explorer update
+  // This allows network visualizer animation to complete first
+  const walletCreatedDelayRef = useRef(null);
+
+  // Listen for wallet creation events to delay Block Explorer update
+  // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 1s before refresh
+  useEffect(() => {
+    const handleWalletCreated = () => {
+      // Mark that wallet creation is in progress to prevent immediate block refreshes
+      isWalletCreationInProgressRef.current = true;
+      
+      // Clear any pending delayed update
+      if (walletCreatedDelayRef.current) {
+        clearTimeout(walletCreatedDelayRef.current);
+      }
+      
+      // Refresh 1 second after animation finishes
+      // Animation duration is 3.5 seconds, so wait 3.5s + 1s = 4.5s after wallet-created event
+      // (The wallet-created event is already delayed 2s after toast in ActionPanel)
+      walletCreatedDelayRef.current = setTimeout(() => {
+        // Refresh transactions simultaneously with dCDP Registry update
+        loadTransactionsRef.current();
+        walletCreatedDelayRef.current = null;
+        // Reset flag after refresh completes
+        isWalletCreationInProgressRef.current = false;
+      }, 4500); // 3.5s (animation) + 1s (post-animation wait) = 4.5s after wallet-created event
+    };
+
+    window.addEventListener('wallet-created', handleWalletCreated);
+
+    return () => {
+      window.removeEventListener('wallet-created', handleWalletCreated);
+      if (walletCreatedDelayRef.current) {
+        clearTimeout(walletCreatedDelayRef.current);
+      }
+    };
+  }, []); // Empty dependencies - setup only once
 
   // Set up block listener for real-time updates
   // Use ref for callback to prevent infinite loops when callback changes
@@ -145,6 +206,12 @@ function BlockExplorer() {
     if (!provider) return;
 
     const blockListener = provider.on('block', () => {
+      // Skip immediate update if wallet creation delay is active
+      // This prevents Block Explorer from updating during the network visualizer animation
+      if (walletCreatedDelayRef.current) {
+        return; // Skip this update, delayed update will happen after animation
+      }
+      
       // Use ref to get latest function without dependency on it
       loadTransactionsRef.current();
     });

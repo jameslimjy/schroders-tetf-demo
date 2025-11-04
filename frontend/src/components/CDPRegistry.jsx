@@ -283,7 +283,6 @@ function CDPRegistry() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          style={{ backgroundColor: animationKey % 2 === 0 ? 'transparent' : '#e8f5e9' }}
         >
           {sortedAccounts.map(([accountId, accountData]) => {
             const uniqueId = ownerIds[accountId];

@@ -146,14 +146,27 @@ function DCDPRegistry() {
     }
   }, [contracts, contractAddresses]);
 
+  // Track if wallet creation is in progress to prevent immediate refresh
+  const isWalletCreationInProgressRef = useRef(false);
+
   // Try to resolve owner IDs to addresses via dCDP contract
+  // Skip if wallet creation is in progress (prevents immediate refresh)
   useEffect(() => {
+    // Skip refresh during wallet creation sequence - wait for delayed window event instead
+    if (isWalletCreationInProgressRef.current) {
+      return;
+    }
     resolveAddresses();
   }, [contracts.dcdp, resolveAddresses]);
 
   // Load balances for all accounts
   const loadBalances = useCallback(async () => {
     if (!isReady) return;
+    
+    // Skip loading balances during wallet creation sequence - wait for delayed refresh instead
+    if (isWalletCreationInProgressRef.current) {
+      return;
+    }
 
     try {
       const newBalances = {};
@@ -336,16 +349,22 @@ function DCDPRegistry() {
   useEffect(() => {
     if (isReady) {
       // Initial load - resolve addresses first, then load balances
-      resolveAddressesRef.current().then(() => {
-        loadBalancesRef.current();
-      });
+      // Skip if wallet creation is in progress
+      if (!isWalletCreationInProgressRef.current) {
+        resolveAddressesRef.current().then(() => {
+          loadBalancesRef.current();
+        });
+      }
 
       // Set up polling to refresh balances periodically
       // Use refs to prevent this effect from re-running when callbacks change
       const interval = setInterval(() => {
-        resolveAddressesRef.current().then(() => {
-          loadBalancesRef.current();
-        });
+        // Skip polling refresh during wallet creation sequence
+        if (!isWalletCreationInProgressRef.current) {
+          resolveAddressesRef.current().then(() => {
+            loadBalancesRef.current();
+          });
+        }
       }, 3000); // Refresh every 3 seconds
 
       return () => clearInterval(interval);
@@ -386,26 +405,12 @@ function DCDPRegistry() {
     };
 
     const handleWalletCreated = (ownerId, walletAddress, event) => {
-      // Clear any pending updates
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      
-      // Trigger animation key update to show phase in/out animation
-      // This makes it obvious that a new account (THOMAS) has been added
-      setAnimationKey(prev => prev + 1);
-      
-      // Immediately refresh addresses and balances when wallet is created
-      // Use refs to get latest functions without dependency on them
-      // Increase delay slightly to ensure blockchain state has propagated
-      debounceTimerRef.current = setTimeout(async () => {
-        await resolveAddressesRef.current();
-        // Give a small delay for state to update before loading balances
-        setTimeout(() => {
-          loadBalancesRef.current();
-        }, 100);
-        debounceTimerRef.current = null;
-      }, 800); // Increased delay to ensure transaction is fully mined
+      // Ignore contract WalletCreated event for wallet creation - we use the delayed window event instead
+      // This prevents immediate refresh when transaction is mined
+      // The window 'wallet-created' event is dispatched after 2s delay in ActionPanel
+      // and triggers the staggered refresh sequence
+      console.log('[DCDPRegistry] Contract WalletCreated event received - ignoring (using delayed window event instead)');
+      return; // Do not refresh - wait for window event that's dispatched after toast delay
     };
 
     const handleTokenized = () => {
@@ -481,6 +486,57 @@ function DCDPRegistry() {
       contracts.dcdp.off('Redeemed', handleRedeemed);
     };
   }, [isReady, contracts]); // Removed resolveAddresses and loadBalances from dependencies
+
+  // Listen for wallet-creation-started event (dispatched immediately when button is pressed)
+  // This sets the flag to prevent immediate refreshes
+  useEffect(() => {
+    const handleWalletCreationStart = () => {
+      isWalletCreationInProgressRef.current = true;
+    };
+
+    window.addEventListener('wallet-creation-started', handleWalletCreationStart);
+
+    return () => {
+      window.removeEventListener('wallet-creation-started', handleWalletCreationStart);
+    };
+  }, []);
+
+  // Listen for wallet-created window event (dispatched after 2s delay in ActionPanel)
+  // This handles the staggered refresh sequence for wallet creation
+  useEffect(() => {
+    const handleWalletCreatedWindowEvent = () => {
+      // Clear any pending updates
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Staggered sequence: animation starts 2s after toast, takes 3.5s, then wait 1s before refresh
+      // Refresh 1 second after animation finishes
+      // Animation duration is 3.5 seconds, so wait 3.5s + 1s = 4.5s after wallet-created event
+      // (The wallet-created event is already delayed 2s after toast in ActionPanel)
+      debounceTimerRef.current = setTimeout(async () => {
+        // Trigger animation key update to show phase in/out animation
+        // This makes it obvious that a new account (THOMAS) has been added
+        setAnimationKey(prev => prev + 1);
+        
+        // Refresh addresses and balances simultaneously with Block Explorer update
+        await resolveAddressesRef.current();
+        loadBalancesRef.current();
+        debounceTimerRef.current = null;
+        // Reset flag after refresh completes
+        isWalletCreationInProgressRef.current = false;
+      }, 4500); // 3.5s (animation) + 1s (post-animation wait) = 4.5s after wallet-created event
+    };
+
+    window.addEventListener('wallet-created', handleWalletCreatedWindowEvent);
+
+    return () => {
+      window.removeEventListener('wallet-created', handleWalletCreatedWindowEvent);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []); // Empty dependencies - setup only once
 
   // Listen for registry update events (triggered when tokenize is called)
   useEffect(() => {
@@ -634,7 +690,6 @@ function DCDPRegistry() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          style={{ backgroundColor: animationKey % 2 === 0 ? 'transparent' : '#e8f5e9' }}
         >
           <AnimatePresence>
             {Object.entries(balances).map(([accountName, accountData]) => (

@@ -57,10 +57,10 @@ export function ThomasActions() {
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
       
-      setSuccess(`Onramp successful: ${onrampAmount} SGDC minted to Thomas`);
+      setSuccess(`✓ Onramp Complete`);
     } catch (err) {
       console.error('Onramp error:', err);
-      setError(err.message || 'Failed to onramp stablecoin');
+      setError('Onramp Failed');
     } finally {
       setLoading(false);
     }
@@ -116,10 +116,10 @@ export function ThomasActions() {
       const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.THOMAS, ACCOUNTS.AP, cost);
       await waitForTransaction(sgdcTransferTx, 60000);
       
-      setSuccess(`Buy successful: ${buyQuantity} TES3 for ${formatTokenAmount(cost)} SGDC`);
+      setSuccess(`✓ Purchase Complete`);
     } catch (err) {
       console.error('Buy error:', err);
-      setError(err.message || 'Failed to buy asset');
+      setError('Purchase Failed');
     } finally {
       setLoading(false);
     }
@@ -175,10 +175,10 @@ export function ThomasActions() {
       const sgdcTransferTx = await sgdc.transferFrom(ACCOUNTS.AP, ACCOUNTS.THOMAS, proceeds);
       await waitForTransaction(sgdcTransferTx, 60000);
       
-      setSuccess(`Sell successful: ${sellQuantity} TES3 for ${formatTokenAmount(proceeds)} SGDC`);
+      setSuccess(`✓ Sale Complete`);
     } catch (err) {
       console.error('Sell error:', err);
-      setError(err.message || 'Failed to sell asset');
+      setError('Sale Failed');
     } finally {
       setLoading(false);
     }
@@ -281,10 +281,10 @@ export function DCDPActions() {
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
       
-      setSuccess(`Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} for ${tokenizeOwnerId} (${ownerId})`);
+      setSuccess(`✓ Tokenization Complete`);
     } catch (err) {
       console.error('Tokenize error:', err);
-      setError(err.message || 'Failed to tokenize');
+      setError('Tokenization Failed');
     } finally {
       setLoading(false);
     }
@@ -328,10 +328,10 @@ export function DCDPActions() {
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
       
-      setSuccess(`Wallet created: ${walletOwnerId} (${ownerId}) -> ${newAddress.slice(0, 10)}...`);
+      setSuccess(`✓ Wallet Created`);
     } catch (err) {
       console.error('Create wallet error:', err);
-      setError(err.message || 'Failed to create wallet');
+      setError('Wallet Creation Failed');
     } finally {
       setLoading(false);
     }
@@ -474,6 +474,18 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error('Provider not connected');
       }
 
+      // Check if Thomas's wallet exists in dCDP contract before proceeding
+      // Wallet must be created via Create Wallet button first
+      const adminSigner = getSigner(ACCOUNTS.ADMIN);
+      const dcdp = getContractWithSigner('dcdp', adminSigner);
+      
+      // Check if wallet exists - ownerToAddress returns zero address if not found
+      const thomasAddress = await dcdp.ownerToAddress('THOMAS');
+      if (!thomasAddress || thomasAddress === '0x0000000000000000000000000000000000000000') {
+        showError('Error, wallet not found!');
+        return; // Finally block will handle setLoading(false)
+      }
+
       const amount = parseTokenAmount(onrampAmount);
       
       // Get stablecoin provider signer (Account #0 / Admin)
@@ -485,7 +497,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       // Wait for transaction with timeout to prevent indefinite hanging
       await waitForTransaction(tx, 60000); // 60 second timeout
       
-      showSuccess(`Onramp successful: ${onrampAmount} SGDC minted to Thomas`);
+      showSuccess('Onramp successful!');
       
       // Trigger network visualizer animation after successful onramp
       // This will show the cash flow and stablecoin flow animation
@@ -494,7 +506,10 @@ function ThomasActionsContent({ onOnrampSuccess }) {
       }
     } catch (err) {
       console.error('Onramp error:', err);
-      showError(err.message || 'Failed to onramp stablecoin');
+      // Only show error if it hasn't been shown already (wallet check)
+      if (err.message !== 'Error, wallet not found!') {
+        showError(err.message || 'Failed to onramp stablecoin');
+      }
     } finally {
       setLoading(false);
     }
@@ -648,7 +663,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error(`SGDC transfer failed: ${err.message || 'Unknown error. AP may not have sufficient gas (ETH).'}`);
       }
       
-      showSuccess(`Buy successful: ${buyQuantity} tokens for ${formatTokenAmount(sgdcCost)} SGDC`);
+      showSuccess('Buy successful!');
       
       // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
       window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
@@ -835,7 +850,7 @@ function ThomasActionsContent({ onOnrampSuccess }) {
         throw new Error(`SGDC transfer failed: ${errorMessage}`);
       }
       
-      showSuccess(`Sell successful: ${sellQuantity} tokens for ${formatTokenAmount(sgdcProceeds)} SGDC`);
+      showSuccess('Sell successful!');
       
       // Trigger Tokenized Depository Registry refresh to show updated balances with phase in/out animation
       window.dispatchEvent(new CustomEvent('tokenized-depository-registry-updated'));
@@ -982,11 +997,7 @@ function DCDPActionsContent() {
       console.log(`[Tokenize] Transaction confirmed!`);
       
       // Show success message
-      showSuccess(
-        `Tokenize successful: ${tokenizeQuantity} ${tokenizeSymbol} tokenized. ` +
-        `Minted ${tokenizeQuantity} TES3 tokens to ${ownerId}. ` +
-        `Transaction: ${tx.hash.slice(0, 10)}...`
-      );
+      showSuccess('Tokenization successful!');
       
       // Trigger custom event to refresh Depository Registry component
       // This ensures the registry updates immediately to show decreased balance
@@ -1075,11 +1086,7 @@ function DCDPActionsContent() {
       console.log(`[Redeem] Depository registry updated: ${quantityNumber} ${tokenizeSymbol} added`);
       
       // Show success message
-      showSuccess(
-        `Redeem successful: ${redeemQuantity} ${tokenizeSymbol} redeemed. ` +
-        `Burned ${redeemQuantity} TES3 tokens from ${ownerId}. ` +
-        `Transaction: ${tx.hash.slice(0, 10)}...`
-      );
+      showSuccess('Redemption successful!');
       
       // Trigger custom event to refresh Depository Registry component
       // This ensures the registry updates immediately to show increased balance
@@ -1137,6 +1144,11 @@ function DCDPActionsContent() {
       
       console.log('[ActionPanel] Create Wallet - Address:', newAddress);
       
+      // Dispatch immediate event BEFORE transaction to prevent components from refreshing immediately
+      // This flag prevents block listener and contract event from triggering refreshes
+      // Must be dispatched before transaction to catch all refresh triggers
+      window.dispatchEvent(new CustomEvent('wallet-creation-started'));
+      
       // Get admin signer
       const adminSigner = await provider.getSigner(ACCOUNTS.ADMIN);
       const dcdp = getContractWithSigner('dcdp', adminSigner);
@@ -1148,7 +1160,23 @@ function DCDPActionsContent() {
       await waitForTransaction(tx, 60000); // 60 second timeout
       
       console.log('[ActionPanel] Wallet created successfully!');
-      showSuccess(`Wallet created: ${walletOwnerId} (${ownerId}) -> ${newAddress.slice(0, 10)}...`);
+      
+      showSuccess('Wallet creation successful!');
+      
+      // Staggered sequence for wallet creation:
+      // 1. Toast appears immediately (done above)
+      // 2. Wait 2 seconds, then trigger animation
+      // 3. Components will refresh 1 second after animation finishes (handled in their listeners)
+      setTimeout(() => {
+        // Trigger network visualizer animation for wallet creation
+        // Animation flows: Thomas → Digital Exchange → Tokenized Depository
+        window.dispatchEvent(new CustomEvent('wallet-created', { 
+          detail: { 
+            ownerId,
+            address: newAddress 
+          } 
+        }));
+      }, 2000); // Wait 2 seconds after toast appears before starting animation
     } catch (err) {
       console.error('Create wallet error:', err);
       showError(err.message || 'Failed to create wallet');
@@ -1242,11 +1270,8 @@ function APActionsContent() {
       // This validates holdings, deducts stocks, and adds ETF shares
       const result = await createETF('AP', quantity, etfSymbol);
       
-      // Show success message with details
-      showSuccess(
-        `ETF creation successful: ${quantity} ${etfSymbol} shares created. ` +
-        `New balance: ${result.newETFBalance}`
-      );
+      // Show success message
+      showSuccess('Creation successful!');
       
       // Trigger custom event to refresh Depository Registry component
       // This ensures the registry updates immediately without waiting for polling
@@ -1338,11 +1363,11 @@ export function APActions() {
       }
 
       const result = await response.json();
-      setSuccess(`ETF creation successful: ${etfQuantity} ${etfSymbol} shares created`);
+      setSuccess(`✓ ETF Created`);
     } catch (err) {
       console.error('Create ETF error:', err);
       // For demo purposes, show success even if API fails (Depository registry updates happen via backend scripts)
-      setSuccess(`ETF creation initiated: ${etfQuantity} ${etfSymbol} shares (Note: Run backend script to update Depository registry)`);
+      setSuccess(`✓ ETF Creation Started`);
       // setError(err.message || 'Failed to create ETF');
     } finally {
       setLoading(false);

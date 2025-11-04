@@ -641,6 +641,85 @@ function NetworkVisualizer({ animationTrigger }) {
     };
   }, []); // Empty dependencies - event listener setup only once
 
+  // Animation sequence for Create Wallet operation
+  // Shows the flow: Thomas → Digital Exchange → Tokenized Depository
+  // Sequence:
+  // 1. Thomas glows first (wallet creation initiated)
+  // 2. Particles travel: Thomas → Digital Exchange
+  // 3. Digital Exchange glows when particles arrive
+  // 4. Particles travel: Digital Exchange → Tokenized Depository
+  // 5. Tokenized Depository glows when wallet is registered
+  const playCreateWalletAnimation = useCallback(() => {
+    console.log('[NetworkVisualizer] Playing create wallet animation...');
+    
+    // Step 1: Make Thomas glow (wallet creation initiated)
+    setActiveNodes((prev) => new Set(prev).add('thomas'));
+
+    // Step 2: Forward flow - Thomas → Digital Exchange
+    // Thomas to Digital Exchange with particles
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('digitalExchange');
+        return next;
+      });
+      
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 50);
+    }, 200);
+
+    // Step 3: Digital Exchange → Tokenized Depository
+    // Wait for particles to reach Digital Exchange, then continue to Tokenized Depository
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('dcdp');
+        return next;
+      });
+      
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 50);
+    }, 700); // 200ms (initial) + 500ms (particle travel time)
+
+    // Step 4: Remove all glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('thomas');
+        next.delete('digitalExchange');
+        next.delete('dcdp');
+        return next;
+      });
+    }, 3500); // Total animation duration: ~3.5 seconds
+  }, []);
+
+  // Store create wallet animation ref for event listener
+  const playCreateWalletAnimationRef = useRef(null);
+  
+  useEffect(() => {
+    playCreateWalletAnimationRef.current = playCreateWalletAnimation;
+  }, [playCreateWalletAnimation]);
+
+  // Listen for Create Wallet events to trigger Thomas → Digital Exchange → Tokenized Depository animation
+  useEffect(() => {
+    const handleWalletCreated = () => {
+      console.log('[NetworkVisualizer] Wallet created event received, playing animation...');
+      if (playCreateWalletAnimationRef.current) {
+        playCreateWalletAnimationRef.current();
+      }
+    };
+
+    window.addEventListener('wallet-created', handleWalletCreated);
+
+    return () => {
+      window.removeEventListener('wallet-created', handleWalletCreated);
+    };
+  }, []); // Empty dependencies - event listener setup only once
+
   // Helper function to get rectangle bounds for connection points
   const getNodeBounds = (nodeId, position) => {
     const config = NODE_CONFIG[nodeId];
@@ -750,33 +829,7 @@ function NetworkVisualizer({ animationTrigger }) {
 
     return (
       <g key={nodeId}>
-        {/* Glow layer behind rectangle border (only when active) - creates neon border glow effect */}
-        {/* Border glow intensity reduced to half, stroke width reduced */}
-        {isActive && (
-          <motion.rect
-            x={x - 1.5}
-            y={y - 1.5}
-            width={width + 3}
-            height={height + 3}
-            rx={9}
-            ry={9}
-            fill="none"
-            stroke={neonStrokeColor}
-            strokeWidth={6} // Reduced from 8 to 6 (thinner)
-            opacity={0.3} // Reduced from 0.6 to 0.3 (half intensity)
-            filter="url(#neonGlowStrong)"
-            animate={{
-              opacity: [0.2, 0.4, 0.2], // Reduced from [0.4, 0.8, 0.4] to half
-            }}
-            transition={{
-              duration: 0.75, // Reduced from 1.5 to 0.75 for 2x speed
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        )}
-        
-        {/* Rectangle node - no fill glow, only border will glow */}
+        {/* Rectangle node - border shadow effects removed, simple stroke only */}
         <motion.rect
           x={x}
           y={y}
@@ -786,42 +839,16 @@ function NetworkVisualizer({ animationTrigger }) {
           ry={8}
           fill={fillColor}
           stroke={neonStrokeColor}
-          strokeWidth={isActive ? 3 : 1} // Reduced from 4 to 3 when active (thinner)
+          strokeWidth={isActive ? 3 : 1}
           className="network-node"
           data-node-id={nodeId}
-          // Removed filter from main rectangle - only border should glow
+          // Border shadow/glow effects removed - simple stroke only
           animate={{
             scale: isActive ? 1.05 : 1,
             opacity: isActive ? 1 : 0.95,
           }}
           transition={{ duration: 0.3 }}
         />
-        
-        {/* Border glow layer - separate element for border-only glow when active */}
-        {/* Border glow intensity reduced to half, stroke width reduced */}
-        {isActive && (
-          <motion.rect
-            x={x}
-            y={y}
-            width={width}
-            height={height}
-            rx={8}
-            ry={8}
-            fill="none"
-            stroke={neonStrokeColor}
-            strokeWidth={3} // Reduced from 4 to 3 (thinner)
-            filter="url(#neonGlowStrong)"
-            opacity={0.45} // Reduced from 0.9 to 0.45 (half intensity)
-            animate={{
-              opacity: [0.35, 0.5, 0.35], // Reduced from [0.7, 1, 0.7] to half
-            }}
-            transition={{
-              duration: 0.75,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        )}
         
         {/* Logo image (centered horizontally, top portion) - bigger size */}
         <image

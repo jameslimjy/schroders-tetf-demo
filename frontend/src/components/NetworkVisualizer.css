@@ -3,29 +3,47 @@
  */
 
 .network-visualizer {
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  /* Glass morphism border - more prominent border */
+  border: 3px solid rgba(147, 197, 253, 0.6);
   border-radius: 16px;
   padding: 20px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.95) 0%, 
-    rgba(248, 250, 252, 0.95) 25%,
-    rgba(241, 245, 249, 0.95) 50%,
-    rgba(226, 232, 240, 0.95) 100%);
+  /* Pure white background to stand out as the focus element */
+  background: #ffffff;
   backdrop-filter: blur(20px);
-  height: 100%;
-  max-height: 100%;
+  /* Fixed height to match CDP Registry (500px) - accounting for padding (20px top + 20px bottom = 40px) */
+  height: 500px;
+  max-height: 500px;
+  width: 100%; /* Take full width to match Block Explorer */
+  min-width: 0; /* Allow flex shrinking if needed */
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Modern glass morphism effect */
+  /* Reduced shadow layers to prevent spillover into Block Explorer */
   box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.1),
-    0 8px 16px rgba(0, 0, 0, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    /* Large outer shadow - reduced blur and opacity */
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    /* Medium shadow layer */
+    0 12px 24px rgba(0, 0, 0, 0.25),
+    /* Close shadow for definition */
+    0 6px 12px rgba(0, 0, 0, 0.2),
+    /* Very close shadow */
+    0 3px 6px rgba(0, 0, 0, 0.15),
+    /* Glass morphism outer border glow - more visible border effect */
+    0 0 0 2px rgba(147, 197, 253, 0.5),
+    /* Glass morphism inner border highlight - more visible */
+    inset 0 0 0 2px rgba(255, 255, 255, 0.8),
+    /* Top highlight for glass effect - more pronounced */
+    inset 0 2px 4px rgba(255, 255, 255, 0.9),
+    /* Side highlights for depth */
+    inset 2px 0 0 rgba(255, 255, 255, 0.5),
+    inset -2px 0 0 rgba(255, 255, 255, 0.5),
+    /* Bottom shadow for depth */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
   position: relative;
-  z-index: 2;
+  z-index: 10;
+  /* Remove vertical transform to eliminate extra space */
+  transform: translateZ(0);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
 }
 
 .network-visualizer h3 {
@@ -72,10 +90,8 @@
   transform: translateZ(0);
 }
 
-/* Enhanced neon glow effect for active nodes */
-.network-node[data-node-id] {
-  filter: drop-shadow(0 0 8px currentColor);
-}
+/* Enhanced neon glow effect for active nodes - removed drop-shadow */
+/* Note: Drop shadow removed - no border shadow effect */
 
 /* Pulsing animation for neon glow - used via SVG filters */
 @keyframes neonPulse {
@@ -115,8 +131,30 @@
   transform: translateZ(0);
 }
 
-/* Subtle background glow when animations are active */
+/* Reduced outer glow effect to prevent spillover */
 .network-visualizer::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.15) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  opacity: 1;
+  z-index: -1;
+  border-radius: 18px;
+  filter: blur(8px);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+/* Subtle background glow when animations are active */
+.network-visualizer::after {
   content: '';
   position: absolute;
   top: 0;
@@ -136,7 +174,7 @@
 }
 
 /* Animate background glow when active (optional enhancement) */
-.network-visualizer.animating::before {
+.network-visualizer.animating::after {
   opacity: 1;
   animation: backgroundNeonPulse 2s ease-in-out infinite;
 }

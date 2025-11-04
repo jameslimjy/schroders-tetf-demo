@@ -4,7 +4,7 @@
  * Integrates all components: Network Visualizer, Block Explorer, Registries, Action Panels
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import NetworkVisualizer from './components/NetworkVisualizer';
 import BlockExplorer from './components/BlockExplorer';
 import CDPRegistry from './components/CDPRegistry';
@@ -17,6 +17,12 @@ import { useBlockchain } from './hooks/useBlockchain';
 import './App.css';
 
 function AppContent() {
+  // Clear localStorage on app start to ensure fresh data from API
+  // This wipes ES3 and other CDP registry data so demo starts from initial state
+  useEffect(() => {
+    localStorage.removeItem('cdp-registry');
+    console.log('[App] Cleared CDP registry from localStorage - starting fresh');
+  }, []);
   const { error: blockchainError } = useBlockchain();
   const { toasts, removeToast } = useToastContext();
   const { 

@@ -6,11 +6,8 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 20px;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.95) 0%, 
-    rgba(248, 250, 252, 0.95) 25%,
-    rgba(241, 245, 249, 0.95) 50%,
-    rgba(226, 232, 240, 0.95) 100%);
+  /* White background */
+  background: #ffffff;
   backdrop-filter: blur(20px);
   flex: 1; /* Allow panels to grow equally to fill available space */
   display: flex;
