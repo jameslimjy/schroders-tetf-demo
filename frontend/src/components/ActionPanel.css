@@ -58,9 +58,9 @@
 .action-section {
   display: flex;
   flex-direction: column;
-  padding: 14px;
+  padding: 8px 14px;
   border-radius: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -86,6 +86,27 @@
 }
 
 .action-section-thomas .action-name {
+  color: #ffffff;
+}
+
+/* Digital Exchange section - matches NetworkVisualizer digitalExchange dark blue color */
+.action-section-digital-exchange {
+  background: #0f2859;
+  border: 2px solid rgba(15, 40, 89, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(15, 40, 89, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.action-section-digital-exchange h4 {
+  color: #ffffff;
+}
+
+.action-section-digital-exchange .action-section-header {
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.action-section-digital-exchange .action-name {
   color: #ffffff;
 }
 
@@ -375,6 +396,64 @@
   align-self: center;
 }
 
+/* Action button - single button that replaces title + input + button */
+/* Styled to match input field aesthetic */
+.action-button {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px) saturate(120%);
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  outline: none;
+  text-align: center;
+}
+
+/* Hover state for action button */
+.action-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.08) 100%);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 0 2px rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Active/pressed state for action button */
+.action-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Disabled state for action button */
+.action-button:disabled {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.05) 0%, 
+    rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .action-error {
   margin-top: 12px;
   padding: 8px 12px;
@@ -409,6 +488,16 @@
 .action-section-thomas .action-success {
   background: rgba(232, 245, 233, 0.9);
   color: #c8e6c9;
+}
+
+.action-section-digital-exchange .action-error {
+  background: rgba(255, 235, 238, 0.95);
+  color: #b71c1c;
+}
+
+.action-section-digital-exchange .action-success {
+  background: rgba(232, 245, 233, 0.95);
+  color: #1b5e20;
 }
 
 .action-section-dcdp .action-success,

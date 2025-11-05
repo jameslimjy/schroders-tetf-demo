@@ -18,20 +18,20 @@ const LOGO_BASE_PATH = '/assets/logos/';
 // Arranged to match the image layout with 90-degree connections
 // Increased spacing to prevent overlap on smaller screens
 const NODE_POSITIONS = {
-  // Left column (vertical stack) - increased vertical spacing
-  // Moved all blocks down by ~2% (approximately 14px) to prevent top cutoff
-  traditionalExchanges: { x: 15, y: 14 },  // Top-left - moved down from 12 to 14
-  settlement: { x: 15, y: 47 },            // Middle-left (Settlement) - moved down from 45 to 47
-  cdp: { x: 15, y: 80 },                   // Bottom-left - moved down from 78 to 80
+  // Left column (vertical stack)
+  // Blocks positioned so vertical lines reach edges without overlap
+  // All blocks moved down by ~3% (approximately 20 pixels total) for better positioning
+  traditionalExchanges: { x: 15, y: 10 },   // Top-left - moved down by 20px total
+  settlement: { x: 15, y: 50 },              // Middle-left (Settlement) - moved down by 20px total
+  cdp: { x: 15, y: 90 },                     // Bottom-left - moved down by 20px total
   
-  // Right column - increased spacing
-  thomas: { x: 65, y: 14 },                // Top-right (above Digital Exchange) - moved down from 12 to 14
-  digitalExchange: { x: 65, y: 47 },       // Middle-right-left - moved down from 45 to 47
-  stablecoinProvider: { x: 85, y: 47 },    // Middle-right-right - moved down from 45 to 47
-  dcdp: { x: 65, y: 80 },                  // Bottom-right (aligned with CDP) - moved down from 78 to 80
-  
-  // AP (connected to CDP with 90-degree angle) - adjusted to prevent overlap
-  ap: { x: 40, y: 67 },                    // Right of CDP, then up - moved down from 65 to 67
+  // Right column
+  // All blocks moved down by ~3% (approximately 20 pixels total) for better positioning
+  thomas: { x: 65, y: 10 },                  // Top-right - moved down by 20px total
+  ap: { x: 45, y: 50 },                       // Left of Digital Exchange - moved down by 20px total
+  digitalExchange: { x: 65, y: 50 },          // Middle-right-left - moved down by 20px total
+  stablecoinProvider: { x: 85, y: 50 },       // Middle-right-right - moved down by 20px total
+  dcdp: { x: 65, y: 90 },                     // Bottom-right - moved down by 20px total
 };
 
 // Node configuration with logos and styling
@@ -643,36 +643,19 @@ function NetworkVisualizer({ animationTrigger }) {
   }, []); // Empty dependencies - event listener setup only once
 
   // Animation sequence for Create Wallet operation
-  // Shows the flow: Thomas → Digital Exchange → Tokenized Depository
+  // Shows the flow: Digital Exchange → Tokenized Depository
   // Sequence:
-  // 1. Thomas glows first (wallet creation initiated)
-  // 2. Particles travel: Thomas → Digital Exchange
-  // 3. Digital Exchange glows when particles arrive
-  // 4. Particles travel: Digital Exchange → Tokenized Depository
-  // 5. Tokenized Depository glows when wallet is registered
+  // 1. Digital Exchange glows first (wallet creation initiated)
+  // 2. Particles travel: Digital Exchange → Tokenized Depository
+  // 3. Tokenized Depository glows when wallet is registered
   const playCreateWalletAnimation = useCallback(() => {
     console.log('[NetworkVisualizer] Playing create wallet animation...');
     
-    // Step 1: Make Thomas glow (wallet creation initiated)
-    setActiveNodes((prev) => new Set(prev).add('thomas'));
+    // Step 1: Make Digital Exchange glow (wallet creation initiated)
+    setActiveNodes((prev) => new Set(prev).add('digitalExchange'));
 
-    // Step 2: Forward flow - Thomas → Digital Exchange
-    // Thomas to Digital Exchange with particles
-    setTimeout(() => {
-      setActiveNodes((prev) => {
-        const next = new Set(prev);
-        next.add('digitalExchange');
-        return next;
-      });
-      
-      const createParticleFn = createParticleRef.current || createParticle;
-      createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash');
-      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 25);
-      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 50);
-    }, 200);
-
-    // Step 3: Digital Exchange → Tokenized Depository
-    // Wait for particles to reach Digital Exchange, then continue to Tokenized Depository
+    // Step 2: Forward flow - Digital Exchange → Tokenized Depository
+    // Digital Exchange to Tokenized Depository with particles
     setTimeout(() => {
       setActiveNodes((prev) => {
         const next = new Set(prev);
@@ -681,16 +664,15 @@ function NetworkVisualizer({ animationTrigger }) {
       });
       
       const createParticleFn = createParticleRef.current || createParticle;
-      createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash');
-      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 25);
-      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#aa55ff', '#aa55ff', 'cash'), 50);
-    }, 700); // 200ms (initial) + 500ms (particle travel time)
+      createParticleFn('digitalExchange', 'dcdp', '#00aaff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#00aaff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('digitalExchange', 'dcdp', '#00aaff', '#aa55ff', 'cash'), 50);
+    }, 200);
 
-    // Step 4: Remove all glows after animation completes
+    // Step 3: Remove all glows after animation completes
     setTimeout(() => {
       setActiveNodes((prev) => {
         const next = new Set(prev);
-        next.delete('thomas');
         next.delete('digitalExchange');
         next.delete('dcdp');
         return next;
@@ -718,6 +700,67 @@ function NetworkVisualizer({ animationTrigger }) {
 
     return () => {
       window.removeEventListener('wallet-created', handleWalletCreated);
+    };
+  }, []); // Empty dependencies - event listener setup only once
+
+  // Animation sequence for Validate KYC operation
+  // Shows the flow: Thomas → Digital Exchange (KYC validation process)
+  // Sequence:
+  // 1. Thomas glows first (initiates KYC validation)
+  // 2. Particles travel: Thomas → Digital Exchange
+  // 3. Digital Exchange glows when KYC validation completes
+  const playValidateKYCAnimation = useCallback(() => {
+    console.log('[NetworkVisualizer] Playing validate KYC animation...');
+    
+    // Step 1: Make Thomas glow (initiates KYC validation)
+    setActiveNodes((prev) => new Set(prev).add('thomas'));
+
+    // Step 2: Forward flow - Thomas → Digital Exchange
+    // Thomas to Digital Exchange with particles
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.add('digitalExchange');
+        return next;
+      });
+      
+      const createParticleFn = createParticleRef.current || createParticle;
+      createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash');
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 25);
+      setTimeout(() => createParticleFn('thomas', 'digitalExchange', '#00aaff', '#aa55ff', 'cash'), 50);
+    }, 200);
+
+    // Step 3: Remove all glows after animation completes
+    setTimeout(() => {
+      setActiveNodes((prev) => {
+        const next = new Set(prev);
+        next.delete('thomas');
+        next.delete('digitalExchange');
+        return next;
+      });
+    }, 3500); // Total animation duration: ~3.5 seconds
+  }, []);
+
+  // Store validate KYC animation ref for event listener
+  const playValidateKYCAnimationRef = useRef(null);
+  
+  useEffect(() => {
+    playValidateKYCAnimationRef.current = playValidateKYCAnimation;
+  }, [playValidateKYCAnimation]);
+
+  // Listen for Validate KYC events to trigger Thomas → Digital Exchange animation
+  useEffect(() => {
+    const handleValidateKYC = () => {
+      console.log('[NetworkVisualizer] Validate KYC event received, playing animation...');
+      if (playValidateKYCAnimationRef.current) {
+        playValidateKYCAnimationRef.current();
+      }
+    };
+
+    window.addEventListener('validate-kyc-executed', handleValidateKYC);
+
+    return () => {
+      window.removeEventListener('validate-kyc-executed', handleValidateKYC);
     };
   }, []); // Empty dependencies - event listener setup only once
 
@@ -1093,7 +1136,7 @@ function NetworkVisualizer({ animationTrigger }) {
             return (
               <>
                 {/* Left column vertical connections */}
-                {/* Traditional Exchanges → ST (vertical down) */}
+                {/* Traditional Exchanges → ST (vertical down) - connects to block edges */}
                 <line
                   x1={tradEx.centerX}
                   y1={tradEx.bottom}
@@ -1103,7 +1146,7 @@ function NetworkVisualizer({ animationTrigger }) {
                   strokeWidth="2"
                 />
                 
-                {/* ST → CDP (vertical down) */}
+                {/* ST → CDP (vertical down) - connects to block edges */}
                 <line
                   x1={st.centerX}
                   y1={st.bottom}
@@ -1124,7 +1167,7 @@ function NetworkVisualizer({ animationTrigger }) {
                 />
                 
                 {/* Right column vertical connections */}
-                {/* Thomas → Digital Exchange (vertical down) */}
+                {/* Thomas → Digital Exchange (vertical down) - connects to block edges */}
                 <line
                   x1={thomas.centerX}
                   y1={thomas.bottom}
@@ -1134,12 +1177,22 @@ function NetworkVisualizer({ animationTrigger }) {
                   strokeWidth="2"
                 />
                 
-                {/* Digital Exchange → dCDP (vertical down) */}
+                {/* Digital Exchange → dCDP (vertical down) - connects to block edges */}
                 <line
                   x1={digitalEx.centerX}
                   y1={digitalEx.bottom}
                   x2={dcdp.centerX}
                   y2={dcdp.top}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                
+                {/* AP → Digital Exchange (horizontal right) */}
+                <line
+                  x1={ap.right}
+                  y1={ap.centerY}
+                  x2={digitalEx.left}
+                  y2={digitalEx.centerY}
                   stroke="#666666"
                   strokeWidth="2"
                 />

@@ -418,6 +418,22 @@ export function CombinedActions({ onOnrampSuccess }) {
         <ThomasActionsContent onOnrampSuccess={onOnrampSuccess} />
       </div>
 
+      {/* Digital Exchange Section */}
+      <div className="action-section action-section-digital-exchange">
+        <div className="action-section-header">
+          <div className="action-section-logo-container">
+            <img 
+              src={`${LOGO_BASE_PATH}digital-exchange-logo.png`} 
+              alt="Digital Exchange" 
+              className="action-section-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+          <h4>Digital Exchange</h4>
+        </div>
+        <DigitalExchangeActionsContent />
+      </div>
+
       {/* Tokenized Depository Section */}
       <div className="action-section action-section-dcdp">
         <div className="action-section-header">
@@ -946,57 +962,65 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   return (
     <>
       <div className="action-group">
-        <div className="action-name">Onramp Cash</div>
-        <div className="action-input-row">
-          <input
-            type="number"
-            value={onrampAmount}
-            onChange={(e) => setOnrampAmount(e.target.value)}
-            placeholder="insert amount"
-          />
-          <button onClick={handleOnramp} disabled={loading} className="action-submit-btn" title="Onramp">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleOnramp} disabled={loading} className="action-button">
+          Onramp Cash
+        </button>
       </div>
 
       <div className="action-group">
-        <div className="action-name">Buy TES3</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="number"
-              step="0.1"
-              value={buyQuantity}
-              onChange={(e) => setBuyQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-          </div>
-          <button onClick={handleBuy} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Buy TES3">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleBuy} disabled={loading} className="action-button">
+          Buy TES3
+        </button>
       </div>
 
       <div className="action-group">
-        <div className="action-name">Sell TES3</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="number"
-              step="0.1"
-              value={sellQuantity}
-              onChange={(e) => setSellQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-          </div>
-          <button onClick={handleSell} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Sell TES3">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleSell} disabled={loading} className="action-button">
+          Sell TES3
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Digital Exchange Actions Content (extracted for reuse)
+ */
+function DigitalExchangeActionsContent() {
+  const { showSuccess, showError } = useToastContext();
+  const [loading, setLoading] = useState(false);
+
+  // Validate KYC action
+  const handleValidateKYC = async () => {
+    setLoading(true);
+
+    try {
+      // Simulate KYC validation process
+      // In a real implementation, this would call a backend API or smart contract
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      
+      showSuccess('KYC validation successful!');
+      
+      // Trigger network visualizer animation: Thomas → Digital Exchange
+      // Animation duration is 3.5 seconds (3500ms)
+      window.dispatchEvent(new CustomEvent('validate-kyc-executed', {
+        detail: {
+          timestamp: Date.now()
+        }
+      }));
+    } catch (err) {
+      console.error('Validate KYC error:', err);
+      showError(err.message || 'Failed to validate KYC');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="action-group">
+        <button onClick={handleValidateKYC} disabled={loading} className="action-button">
+          Validate KYC
+        </button>
       </div>
     </>
   );
@@ -1297,55 +1321,21 @@ function DCDPActionsContent() {
   return (
     <>
       <div className="action-group">
-        <div className="action-name">Create Wallet</div>
-        <div className="action-input-row">
-          <input
-            type="text"
-            value={walletOwnerId}
-            onChange={(e) => setWalletOwnerId(e.target.value)}
-            placeholder="insert unique ID (e.g., SN72K45M83)"
-          />
-          <button onClick={handleCreateWallet} disabled={loading} className="action-submit-btn" title="Create Wallet">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleCreateWallet} disabled={loading} className="action-button">
+          Create Wallet
+        </button>
       </div>
 
       <div className="action-group">
-        <div className="action-name">Tokenize ES3</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="number"
-              value={tokenizeQuantity}
-              onChange={(e) => setTokenizeQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-          </div>
-          <button onClick={handleTokenize} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Tokenize ES3">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleTokenize} disabled={loading} className="action-button">
+          Tokenize ES3
+        </button>
       </div>
 
       <div className="action-group">
-        <div className="action-name">Redeem ES3</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="number"
-              value={redeemQuantity}
-              onChange={(e) => setRedeemQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-          </div>
-          <button onClick={handleRedeem} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Redeem ES3">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleRedeem} disabled={loading} className="action-button">
+          Redeem ES3
+        </button>
       </div>
     </>
   );
@@ -1407,21 +1397,9 @@ function APActionsContent() {
   return (
     <>
       <div className="action-group">
-        <div className="action-name">Create ES3</div>
-        <div className="action-multi-input">
-          <div className="action-input-stack">
-            <input
-              type="number"
-              value={etfQuantity}
-              onChange={(e) => setEtfQuantity(e.target.value)}
-              placeholder="insert quantity"
-            />
-          </div>
-          <button onClick={handleCreateETF} disabled={loading} className="action-submit-btn action-submit-btn-centered" title="Create ES3">
-            &gt;
-            <i>✓</i>
-          </button>
-        </div>
+        <button onClick={handleCreateETF} disabled={loading} className="action-button">
+          Create ES3
+        </button>
       </div>
     </>
   );
