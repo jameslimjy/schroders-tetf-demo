@@ -465,7 +465,7 @@ function NetworkVisualizer({ animationTrigger }) {
       // Calculate Fund Manager position exactly as in line rendering code
       const fundManagerX = (apBounds.centerX + cdpBounds.centerX) / 2;
       const fundManagerY = (apBounds.centerY + cdpBounds.centerY) / 2;
-      const boxSize = 50; // Fund Manager box size (matches render code)
+      const boxSize = 65; // Fund Manager box size (increased to prevent text overflow)
       const boxRadius = boxSize / 2;
       
       // Debug logging - verify coordinates are correct
@@ -1541,7 +1541,7 @@ function NetworkVisualizer({ animationTrigger }) {
                     // Calculate Fund Manager position (diagonally between AP and CDP)
                     const fundManagerX = (ap.centerX + cdp.centerX) / 2;
                     const fundManagerY = (ap.centerY + cdp.centerY) / 2;
-                    const boxSize = 50; // Fund Manager box size (30px logo + 20px padding)
+                    const boxSize = 65; // Fund Manager box size (increased to prevent text overflow)
                     const boxRadius = boxSize / 2;
                     
                     return (
@@ -1646,8 +1646,8 @@ function NetworkVisualizer({ animationTrigger }) {
               const logoX = (apBounds.centerX + cdpBounds.centerX) / 2; // Midway between AP and CDP horizontally
               const logoY = (apBounds.centerY + cdpBounds.centerY) / 2; // Midway between AP and CDP vertically
               const logoSize = 30; // Logo size in pixels (half the original 60px)
-              const boxPadding = 10; // Padding around logo for the box
-              const boxSize = logoSize + boxPadding * 2; // Total box size (50px total)
+              const boxPadding = 17.5; // Padding around logo for the box (increased to make box bigger)
+              const boxSize = logoSize + boxPadding * 2; // Total box size (65px total - increased for text spacing)
               const isActive = activeNodes.has('fundManager'); // Check if fund manager should glow
               
               return (
@@ -1658,7 +1658,7 @@ function NetworkVisualizer({ animationTrigger }) {
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.5, ease: 'easeInOut' }}
                 >
-                  {/* Box around Fund Manager logo - white background matching network visualizer */}
+                  {/* Box around Fund Manager logo - dark blue background matching other blocks */}
                   <motion.rect
                     x={logoX - boxSize / 2}
                     y={logoY - boxSize / 2}
@@ -1666,7 +1666,7 @@ function NetworkVisualizer({ animationTrigger }) {
                     height={boxSize}
                     rx={8}
                     ry={8}
-                    fill="#ffffff" // White background matching network visualizer
+                    fill="#0f2859" // Dark blue background matching other blocks
                     stroke={isActive ? '#00d4ff' : 'transparent'} // Neon blue glow when active, transparent otherwise
                     strokeWidth={isActive ? 3 : 0}
                     initial={{ opacity: 0.95, scale: 1 }} // Explicit initial values to prevent undefined warning
@@ -1692,18 +1692,18 @@ function NetworkVisualizer({ animationTrigger }) {
                     }}
                   />
                   
-                  {/* Fund Manager text - positioned below logo with half font size */}
+                  {/* Fund Manager text - positioned below logo with 2/3 font size */}
                   <text
                     x={logoX}
-                    y={logoY + 8} // Position text below the logo
+                    y={logoY + 12} // Position text below the logo, adjusted for larger box (box bottom is at logoY + 32.5px, text extends ~22px down)
                     textAnchor="middle"
-                    fontSize="8" // Half the font size of other blocks (16px / 2 = 8px)
+                    fontSize="10.67" // 2/3 the font size of other blocks (16px * 2/3 = 10.67px)
                     fontWeight="600"
-                    fill="#000000" // Black text for visibility on white background
-                    className="fund-manager-label"
+                    fill="#ffffff" // White text matching other blocks
+                    className="network-label" // Same font as other blocks (Inter, sans-serif)
                   >
                     <tspan x={logoX} dy="0">Fund</tspan>
-                    <tspan x={logoX} dy="9">Manager</tspan> {/* 9px line height for 8px font */}
+                    <tspan x={logoX} dy="11">Manager</tspan> {/* 11px line height for 10.67px font (scaled proportionally) */}
                   </text>
                 </motion.g>
               );

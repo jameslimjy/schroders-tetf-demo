@@ -998,6 +998,9 @@ function DigitalExchangeActionsContent() {
       // In a real implementation, this would call a backend API or smart contract
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       
+      // Mark KYC as validated in localStorage
+      localStorage.setItem('kycValidated', 'true');
+      
       showSuccess('KYC validation successful!');
       
       // Trigger network visualizer animation: Thomas → Digital Exchange
@@ -1248,6 +1251,13 @@ function DCDPActionsContent() {
 
   // Create wallet
   const handleCreateWallet = async () => {
+    // Check if KYC has been validated before allowing wallet creation
+    const kycValidated = localStorage.getItem('kycValidated') === 'true';
+    if (!kycValidated) {
+      showError('Please validate KYC before creating a wallet');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -1394,11 +1404,45 @@ function APActionsContent() {
     }
   };
 
+  // List TES3 action
+  // This lists TES3 tokens on the Digital Exchange
+  // Moves listing functionality from Digital Exchange to AP section
+  const handleListTES3 = async () => {
+    setLoading(true);
+
+    try {
+      // Simulate listing process
+      // In a real implementation, this would call a backend API or smart contract
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      
+      showSuccess('TES3 listing successful!');
+      
+      // Trigger network visualizer animation: AP → Digital Exchange
+      // Animation duration is 3.5 seconds (3500ms)
+      window.dispatchEvent(new CustomEvent('list-tes3-executed', {
+        detail: {
+          timestamp: Date.now()
+        }
+      }));
+    } catch (err) {
+      console.error('List TES3 error:', err);
+      showError(err.message || 'Failed to list TES3');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="action-group">
         <button onClick={handleCreateETF} disabled={loading} className="action-button">
           Create ES3
+        </button>
+      </div>
+
+      <div className="action-group">
+        <button onClick={handleListTES3} disabled={loading} className="action-button">
+          List TES3
         </button>
       </div>
     </>
