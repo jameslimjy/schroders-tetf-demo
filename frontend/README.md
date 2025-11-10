@@ -1,174 +1,110 @@
-# Tokenized ETF Demo - Frontend
-
-React frontend application for the Tokenized ETF Demo project.
+# Tokenized ETF Frontend
 
 ## Overview
 
-This frontend application provides a visual interface for demonstrating tokenized securities on a blockchain. It includes:
+This React application presents the Tokenized ETF storyboard. It connects to the smart contracts deployed by the backend, renders onchain and offchain data, and walks through the workflow for tokenizing traditional ETF shares.
 
-- **Network Visualizer**: Animated visualization of stakeholder network and transaction flows
-- **Block Explorer**: Real-time display of blockchain transactions
-- **CDP Registry**: Display of offchain traditional securities balances
-- **dCDP Registry**: Display of onchain tokenized securities balances
-- **Action Panels**: Interactive buttons for performing actions (onramp, buy, sell, tokenize, etc.)
+Key modules include:
 
-## Tech Stack
+- **Network Visualizer**: Animates stakeholders and asset flows across the demo steps.
+- **Block Explorer**: Streams local blockchain activity.
+- **CDP Registry**: Reads simulated custodial balances from the demo dataset.
+- **dCDP Registry**: Queries TES3 and SGDC balances directly from the contracts.
+- **Action Panels**: Triggers scripted actions such as create ETF, tokenize, onramp, buy, and sell.
 
-- **React** - UI framework
-- **ethers.js v6** - Blockchain interaction library
-- **Framer Motion** - Animation library
-- **CSS3** - Styling
+## Technology Stack
+
+- React 18
+- ethers.js v6
+- Framer Motion
+- CSS Modules
 
 ## Setup
 
 ### Prerequisites
 
-- Node.js (v18+)
-- Running Anvil blockchain instance on `http://localhost:8545`
-- Deployed smart contracts (SGDC, TES3, dCDP)
+- Node.js 18 or later
+- Local Anvil instance running at `http://localhost:8545`
+- Deployed SGDC, TES3, and dCDP contracts (see backend instructions)
 
-### Installation
+### Install Dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-### Configuration
+### Configure Contract Addresses
 
-Update contract addresses in `src/utils/constants.js` after backend deployment:
+Update `src/utils/constants.js` with the addresses emitted by the deployment script.
 
 ```javascript
 export const CONTRACT_ADDRESSES = {
-  SGDC: '0x...', // Actual deployed address
-  TES3: '0x...', // Actual deployed address
-  dCDP: '0x...', // Actual deployed address
+  SGDC: '0x...', // Address from backend/deployment-info.json
+  TES3: '0x...',
+  dCDP: '0x...',
 };
 
 export const ACCOUNTS = {
-  AP: '0x...', // Authorized Participant address
-  THOMAS: '0x...', // Thomas address
-  ADMIN: '0x...', // Admin address
-  STABLECOIN_PROVIDER: '0x...', // Stablecoin provider address
+  AP: '0x...',        // Authorised participant
+  THOMAS: '0x...',    // Retail investor
+  ADMIN: '0x...',     // Platform administrator
+  STABLECOIN_PROVIDER: '0x...', // SGDC minter
 };
 ```
 
-### Running
+### Start the Development Server
 
 ```bash
 npm start
 ```
 
-The application will open at `http://localhost:3000`.
+The application opens at `http://localhost:3000`.
 
-## Project Structure
+## Project Layout
 
 ```
 frontend/
 ├── src/
-│   ├── components/          # React components
-│   │   ├── NetworkVisualizer.jsx
-│   │   ├── BlockExplorer.jsx
-│   │   ├── CDPRegistry.jsx
-│   │   ├── dCDPRegistry.jsx
-│   │   └── ActionPanel.jsx
-│   ├── hooks/              # Custom React hooks
-│   │   ├── useBlockchain.js
-│   │   └── useContracts.js
-│   ├── utils/              # Utility functions
-│   │   ├── constants.js
-│   │   ├── contractHelpers.js
-│   │   └── api.js
-│   ├── App.js              # Main app component
-│   └── index.js            # Entry point
+│   ├── components/        UI components and layouts
+│   ├── hooks/             Custom hooks for blockchain access
+│   ├── utils/             Contract helpers and constants
+│   ├── App.js             Application composition
+│   └── index.js           Entry point
 ├── public/
-│   └── api/
-│       └── cdp-registry.json  # CDP registry data
+│   └── api/cdp-registry.json  Demo registry data served over HTTP
 └── package.json
 ```
 
-## Components
+## Component Notes
 
-### NetworkVisualizer
-
-Displays the stakeholder network with animated transaction flows. Uses SVG and Framer Motion for smooth animations.
-
-### BlockExplorer
-
-Shows recent blockchain transactions in a table format. Auto-updates when new blocks are mined.
-
-### CDPRegistry
-
-Displays offchain traditional securities balances from the CDP registry JSON file. Updates every 5 seconds.
-
-### dCDPRegistry
-
-Displays onchain tokenized securities balances by querying smart contracts. Updates in real-time via event listeners.
-
-### ActionPanel
-
-Contains three action panels:
-- **ThomasActions**: Onramp, Buy Asset, Sell Asset
-- **dCDPActions**: Tokenize, Create Wallet
-- **APActions**: Create ETF
+- **NetworkVisualizer** renders animated SVG with Framer Motion to show stakeholder relationships.
+- **BlockExplorer** listens for new blocks and displays filtered events.
+- **CDPRegistry** polls the JSON registry to keep traditional balances current.
+- **dCDPRegistry** calls contracts through ethers.js to reflect onchain state.
+- **ActionPanel** groups scripted demo actions for Thomas, the AP, and dCDP operations.
 
 ## Blockchain Integration
 
-The frontend connects to a local Anvil instance at `http://localhost:8545`. It uses ethers.js v6 to:
+The app connects to Anvil and consumes contract ABIs generated by the backend build. It reads state, subscribes to events (`Transfer`, `Tokenized`, `WalletCreated`), and is structured to support transaction signing when demo keys are provided.
 
-- Connect to the blockchain
-- Read contract state
-- Listen to events
-- Send transactions (when signers are provided)
+## Testing the Frontend
 
-## Development Notes
-
-### Placeholder Functions
-
-Some action buttons show placeholder implementations because they require:
-- Private keys for signing transactions
-- Backend API endpoints for offchain operations
-- Actual contract ABIs with full function signatures
-
-These will be implemented once the backend provides:
-- Contract addresses and ABIs
-- Account private keys (for demo purposes)
-- API endpoints for CDP registry updates
-
-### Event Listening
-
-The frontend listens to:
-- `Transfer` events on SGDC and TES3 contracts
-- `Tokenized` events on dCDP contract
-- `WalletCreated` events on dCDP contract
-- Block confirmations from Anvil
-
-### Real-time Updates
-
-- Block Explorer: Updates when new blocks are mined
-- dCDP Registry: Updates when Transfer events occur
-- CDP Registry: Polls JSON file every 5 seconds
-
-## Testing
-
-To test the frontend:
-
-1. Ensure Anvil is running: `anvil`
-2. Deploy contracts (backend team handles this)
-3. Update contract addresses in `constants.js`
-4. Start the frontend: `npm start`
-5. Open `http://localhost:3000`
+1. Start Anvil (`anvil`).  
+2. Deploy the contracts using the backend script.  
+3. Copy the deployed addresses into `constants.js`.  
+4. Run `npm start`.  
+5. Navigate to `http://localhost:3000` and step through the storyboard.
 
 ## Future Enhancements
 
-- [LOG] Add proper error handling and user feedback
-- [LOG] Implement actual transaction signing with MetaMask or similar
-- [LOG] Add transaction status indicators
-- [LOG] Improve animation system for network visualizer
-- [LOG] Add loading states for all async operations
-- [LOG] Implement proper API integration for CDP registry updates
+- Add end-user facing error and status messaging.  
+- Integrate MetaMask or a similar wallet for signing actions.  
+- Surface transaction progress indicators.  
+- Extend animation system for larger stakeholder networks.  
+- Add loading states for all asynchronous panels.  
+- Replace JSON polling with a backend API for registry updates.
 
 ## License
 
-MIT - Demo/Educational Project
-
+MIT — Demonstration and educational use only.

@@ -6,10 +6,10 @@
 import React, { createContext, useContext, useState } from 'react';
 
 // Price constants (in SGDC, 18 decimals)
-// Current price: $4.51 per TES3
-const CURRENT_PRICE = '4510000000000000000'; // 4.51 * 10^18
-// Future price: $4.89 per TES3  
-const FUTURE_PRICE = '4890000000000000000'; // 4.89 * 10^18
+// Current price: $4.50 per TES3
+const CURRENT_PRICE = '4500000000000000000'; // 4.50 * 10^18
+// Future price: $5.30 per TES3  
+const FUTURE_PRICE = '5300000000000000000'; // 5.30 * 10^18
 
 // Date constants
 const CURRENT_DATE = 'Nov 2025';

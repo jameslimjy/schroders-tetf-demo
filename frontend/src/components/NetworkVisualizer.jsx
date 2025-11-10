@@ -1482,6 +1482,35 @@ function NetworkVisualizer({ animationTrigger }) {
                   stroke="#666666"
                   strokeWidth="2"
                 />
+
+                {/* Traditional Exchanges → AP (three-segment path with Fund Manager alignment) */}
+                {/* Segment 1: horizontal run across to Fund Manager midpoint to mirror ETF flow geometry */}
+                <line
+                  x1={tradEx.right}
+                  y1={tradEx.centerY}
+                  x2={ap && cdp ? (ap.centerX + cdp.centerX) / 2 : tradEx.right}
+                  y2={tradEx.centerY}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                {/* Segment 2: vertical drop aligning with AP midpoint so the turn happens above the block */}
+                <line
+                  x1={ap && cdp ? (ap.centerX + cdp.centerX) / 2 : tradEx.right}
+                  y1={tradEx.centerY}
+                  x2={ap && cdp ? (ap.centerX + cdp.centerX) / 2 : tradEx.right}
+                  y2={ap.centerY}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
+                {/* Segment 3: horizontal entry into AP from the left edge to keep 90° joints */}
+                <line
+                  x1={ap && cdp ? (ap.centerX + cdp.centerX) / 2 : tradEx.right}
+                  y1={ap.centerY}
+                  x2={ap.left}
+                  y2={ap.centerY}
+                  stroke="#666666"
+                  strokeWidth="2"
+                />
                 
                 {/* CDP → dCDP (horizontal right) */}
                 <line

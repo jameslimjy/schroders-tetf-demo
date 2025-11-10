@@ -1,66 +1,44 @@
-## Foundry
+# Backend Overview
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+The backend implements the smart contracts, deployment tooling, and helper scripts that power the Tokenized ETF demo. All Solidity sources are written for the Foundry toolchain and documented in detail in `BACKEND_README.md`.
 
-Foundry consists of:
+## Daily Commands
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+```bash
+# Compile contracts
+forge build
 
-## Documentation
+# Run the full test suite
+forge test
 
-https://book.getfoundry.sh/
+# Format Solidity sources
+forge fmt
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
+# Take a gas snapshot before regressions
+forge snapshot
 ```
 
-### Test
+## Local Blockchain
 
-```shell
-$ forge test
+Use Anvil for local development and testing.
+
+```bash
+anvil
 ```
 
-### Format
+## Deployment Script
 
-```shell
-$ forge fmt
+The production deployment script for local demos lives at `script/Deploy.s.sol`. It deploys SGDC, TES3, and dCDP, links their dependencies, and saves the addresses to `deployment-info.json`.
+
+```bash
+forge script script/Deploy.s.sol --broadcast \
+  --rpc-url http://localhost:8545 \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-### Gas Snapshots
+## Further Reading
 
-```shell
-$ forge snapshot
-```
+- `BACKEND_README.md`: End-to-end contract summary, helper scripts, and design decisions
+- `../PROJECT_SPECIFICATION.md`: End-to-end storyboard describing all demo phases
 
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Refer to https://book.getfoundry.sh/ for official Foundry documentation. It covers advanced configuration, cheatcodes, debugging tools, and integration patterns used within this project.

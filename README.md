@@ -1,141 +1,93 @@
-# Tokenized ETF Demo Project
+# Tokenized ETF Demo
 
-A full-stack demonstration project showcasing how a tokenized Exchange-Traded Fund (ETF) system might work in a future state where a country's central depository operates a decentralized sidecar for securities tokenization.
+This repository contains a full-stack prototype that illustrates how a traditional exchange-traded fund could be tokenized and managed through a decentralized sidecar operated by a national central depository. The demo combines an Ethereum-based smart contract suite with a React-based user interface to walk through the complete product storyboard.
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js** (v18+)
-- **Foundry** (forge, anvil, cast)
-- **npm** or **yarn**
+- Node.js 18 or later
+- Foundry toolchain (`forge`, `anvil`, `cast`)
+- npm or yarn
 
-### Installation
-
-1. **Install Foundry** (if not already installed):
-   ```bash
-   curl -L https://foundry.paradigm.xyz | bash
-   foundryup
-   ```
-
-2. **Install Backend Dependencies**:
-   ```bash
-   cd backend
-   forge install
-   ```
-
-3. **Install Frontend Dependencies** (when frontend is ready):
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-### Running the Demo
-
-**Option 1: Automated Startup (Recommended)**
-
-Simply run the startup script:
+### Install Dependencies
 
 ```bash
-# macOS/Linux
+# Install Foundry if it is not already available
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+
+# Install backend libraries (Solidity dependencies)
+cd backend
+forge install
+
+# Install frontend packages
+cd ../frontend
+npm install
+```
+
+## Running the Demo
+
+### Automated Startup (recommended)
+
+Start the complete environment with the provided script. It launches Anvil, deploys the contracts, and boots the React development server.
+
+```bash
+# macOS / Linux
 ./start-demo.sh
 
 # Windows
-start-demo.bat
+./start-demo.bat
 ```
 
-This script will:
-1. ✅ Start Anvil blockchain (if not already running)
-2. ✅ Deploy all smart contracts
-3. ✅ Start the frontend development server
+### Manual Startup
 
-**Option 2: Manual Startup**
-
-If you prefer to run commands individually:
+Run each service manually when you need additional control.
 
 ```bash
-# Terminal 1: Start Anvil
+# Terminal 1: local blockchain
 cd backend
 anvil
 
-# Terminal 2: Deploy Contracts
+# Terminal 2: contract deployment
 cd backend
-forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+forge script script/Deploy.s.sol --broadcast \
+  --rpc-url http://localhost:8545 \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
-# Terminal 3: Start Frontend
+# Terminal 3: frontend development server
 cd frontend
 npm start
 ```
 
-## Project Structure
+## Repository Layout
 
 ```
 tetf/
-├── backend/              # Smart contracts (Foundry)
-│   ├── src/             # Solidity contracts
-│   ├── test/            # Contract tests
-│   ├── script/          # Deployment & helper scripts
-│   └── data/            # CDP registry (offchain data)
-├── frontend/            # React frontend (to be built)
-├── start-demo.sh        # Startup script (macOS/Linux)
-├── start-demo.bat       # Startup script (Windows)
-└── FRONTEND_INTEGRATION_GUIDE.md  # Integration guide
+├── backend/                  Smart contracts, tests, and deployment scripts
+├── frontend/                 React frontend for the demo experience
+├── start-demo.sh             Convenience launcher for macOS and Linux
+├── start-demo.bat            Convenience launcher for Windows
+├── FRONTEND_INTEGRATION_GUIDE.md
+└── PROJECT_SPECIFICATION.md
 ```
 
-## Backend Status
+## Smart Contract Suite
 
-✅ **Complete** - All smart contracts implemented and tested
+The backend contracts implement the tokenized ETF lifecycle. All tests pass and the deployment script is production ready for a local environment. Detailed documentation lives in `backend/BACKEND_README.md`.
 
-- **SGDC.sol**: Stablecoin contract
-- **TES3.sol**: Tokenized ETF contract  
-- **dCDP.sol**: Protocol contract
-- **48 tests** - All passing
-- **Deployment script** - Automated deployment
-
-See `backend/BACKEND_README.md` for detailed backend documentation.
+- `SGDC.sol`: Singapore dollar-denominated ERC-20 stablecoin
+- `TES3.sol`: Token representing tokenized ES3 ETF shares
+- `dCDP.sol`: Decentralized central depository protocol orchestrating tokenization
 
 ## Frontend Status
 
-⏳ **In Progress** - Frontend development
-
-See `FRONTEND_INTEGRATION_GUIDE.md` for integration instructions.
-
-## Demo Storyboard
-
-The demo follows 7 key steps:
-
-1. **ETF Creation** - AP creates 100 ES3 shares from underlying stocks
-2. **Tokenization** - AP tokenizes 50 ES3 shares → 50 TES3 tokens
-3. **Listing** - AP lists TES3 on digital exchange
-4. **Account Creation** - Thomas creates account, dCDP creates wallet
-5. **Onramp** - Thomas onramps $1000 via stablecoin (SGDC)
-6. **Buy Asset** - Thomas buys 5.5 TES3 for $550 SGDC
-7. **Sell Asset** - Thomas sells 3 TES3 for $300 SGDC
-
-## Key Features
-
-- **Fractional Ownership**: Buy/sell fractional shares (e.g., 5.5 TES3)
-- **Instant Settlement**: Transactions settle immediately using smart contracts
-- **Lock-and-Mint**: Traditional securities locked in CDP, tokens minted on dCDP
-- **Real-time Updates**: Blockchain events trigger UI updates
-
-## Network Configuration
-
-- **RPC URL**: `http://localhost:8545`
-- **Chain ID**: `31337`
-- **Network**: Anvil (local development)
-
-## Contract Addresses
-
-After deployment, addresses are saved in `backend/deployment-info.json`:
-
-- **SGDC**: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
-- **TES3**: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
-- **dCDP**: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`
+The React application renders the storyboard for the seven demo stages, covering ETF creation, tokenization, listing, wallet creation, onramping, secondary market trades, and redemption. Integration notes, sample data, and ABI usage guidelines are available in `FRONTEND_INTEGRATION_GUIDE.md` and `FRONTEND_AGENT_CONTEXT.md`.
 
 ## Testing
 
-Run backend tests:
+Execute the Solidity test suite with Foundry.
+
 ```bash
 cd backend
 forge test
@@ -143,34 +95,31 @@ forge test
 
 ## Troubleshooting
 
-### Anvil Already Running
-If you see "Address already in use":
-```bash
-# Check what's using port 8545
-lsof -i :8545
+**Anvil already running**  
+Port 8545 must be free before launching a new chain.
 
-# Kill the process if needed
+```bash
+lsof -i :8545
 kill <PID>
 ```
 
-### Contracts Not Deployed
-Make sure Anvil is running before deploying:
+**Contracts missing from deployment output**  
+Confirm Anvil is running and re-run the deployment script.
+
 ```bash
-# Check if Anvil is running
 curl http://localhost:8545
+forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545
 ```
 
-### Frontend Can't Connect
-- Verify Anvil is running on `http://localhost:8545`
-- Check that contracts are deployed (see `backend/deployment-info.json`)
-- Ensure frontend is reading contract addresses correctly
+**Frontend cannot connect to contracts**  
+Ensure the deployment script has populated `backend/deployment-info.json`, and verify the React app reads the generated addresses (see `frontend/src/utils/constants.js`).
 
-## Documentation
+## Supporting Documentation
 
-- **Backend**: `backend/BACKEND_README.md`
-- **Frontend Integration**: `FRONTEND_INTEGRATION_GUIDE.md`
-- **Project Specification**: `PROJECT_SPECIFICATION.md`
+- `backend/BACKEND_README.md`: Contract design, deployment details, and helper scripts
+- `FRONTEND_INTEGRATION_GUIDE.md`: Guidance for integrating contract data into the UI
+- `PROJECT_SPECIFICATION.md`: End-to-end storyboard and platform assumptions
 
 ## License
 
-This is a demonstration project for educational purposes.
+This project is provided for demonstration and educational purposes only.

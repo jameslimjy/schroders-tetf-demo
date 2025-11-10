@@ -5,7 +5,7 @@
  */
 
 /* eslint-env es2020 */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useContracts } from '../hooks/useContracts';
 import { useBlockchain } from '../hooks/useBlockchain';
@@ -479,10 +479,10 @@ function ThomasActionsContent({ onOnrampSuccess }) {
   const { showSuccess, showError } = useToastContext();
   const { getCurrentPrice } = useDatePrice();
   const [onrampAmount, setOnrampAmount] = useState('10000');
-  const [buyQuantity, setBuyQuantity] = useState('1000');
+  const [buyQuantity, setBuyQuantity] = useState('1111.111111'); // Default: 5000 / 4.50 = 1111.111111...
   // Hardcoded TES3 contract address - always use this address for buy/sell operations
   const buyContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-  const [sellQuantity, setSellQuantity] = useState('1000');
+  const [sellQuantity, setSellQuantity] = useState('1111.111111'); // Default: 5000 / 4.50 = 1111.111111...
   // Hardcoded TES3 contract address - always use this address for buy/sell operations
   const sellContractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
   const [loading, setLoading] = useState(false);
@@ -1021,8 +1021,9 @@ function DigitalExchangeActionsContent() {
   return (
     <>
       <div className="action-group">
+        {/* Button copy highlights full KYC/AML checks so users know AML screening is included */}
         <button onClick={handleValidateKYC} disabled={loading} className="action-button">
-          Validate KYC
+          Validate KYC/AML
         </button>
       </div>
     </>
@@ -1044,6 +1045,27 @@ function DCDPActionsContent() {
   const tokenizeSymbol = 'ES3';
   const [walletOwnerId, setWalletOwnerId] = useState('SN72K45M83');
   const [loading, setLoading] = useState(false);
+  // Check if KYC has been validated - check localStorage on mount and listen for changes
+  const [kycValidated, setKycValidated] = useState(() => {
+    return localStorage.getItem('kycValidated') === 'true';
+  });
+
+  // Listen for KYC validation events to update button state
+  useEffect(() => {
+    // Check localStorage periodically in case it was updated elsewhere (e.g., from Validate KYC button)
+    const checkKYC = () => {
+      const isValidated = localStorage.getItem('kycValidated') === 'true';
+      setKycValidated(isValidated);
+    };
+
+    // Check immediately and set up interval to check periodically
+    checkKYC();
+    const interval = setInterval(checkKYC, 500); // Check every 500ms for responsive updates
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   // Tokenize securities
   // This converts traditional securities (ES3 ETF) into tokenized tokens (TES3)
@@ -1331,7 +1353,7 @@ function DCDPActionsContent() {
   return (
     <>
       <div className="action-group">
-        <button onClick={handleCreateWallet} disabled={loading} className="action-button">
+        <button onClick={handleCreateWallet} disabled={loading || !kycValidated} className="action-button">
           Create Wallet
         </button>
       </div>

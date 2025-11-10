@@ -94,11 +94,17 @@
   margin-bottom: 4px;
   padding: 2px 0;
   gap: 6px;
+  min-width: 0; /* Allow flex items to shrink below their content size */
 }
 
 .dcdp-symbol {
   color: #000;
   font-weight: 500;
+  flex: 1 1 auto; /* Allow symbol to shrink and take available space */
+  min-width: 0; /* Allow text truncation */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* Keep on one line but allow truncation */
 }
 
 .dcdp-address-description {
@@ -109,6 +115,8 @@
 .dcdp-quantity {
   color: #000;
   font-weight: 600;
+  flex: 0 0 auto; /* Don't shrink, don't grow - always show full number */
+  white-space: nowrap; /* Ensure numbers stay on one line */
 }
 
 .dcdp-empty {

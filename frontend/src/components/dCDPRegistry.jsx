@@ -851,7 +851,7 @@ function DCDPRegistry() {
           {parseFloat(tes3) > 0 && (
             <div className="dcdp-holding">
               <span className="dcdp-symbol">
-                TES3 {contractAddresses?.TES3 && <span className="dcdp-address-description">({shortenAddress(contractAddresses.TES3)})</span>}:
+                TES3 {contractAddresses?.TES3 && <span className="dcdp-address-description">({contractAddresses.TES3.substring(0, 8)})</span>}:
               </span>
               <span className="dcdp-quantity">{parseFloat(tes3).toLocaleString()}</span>
             </div>
@@ -859,7 +859,7 @@ function DCDPRegistry() {
           {parseFloat(sgdc) > 0 && (
             <div className="dcdp-holding">
               <span className="dcdp-symbol">
-                SGDC {contractAddresses?.SGDC && <span className="dcdp-address-description">({shortenAddress(contractAddresses.SGDC)})</span>}:
+                SGDC {contractAddresses?.SGDC && <span className="dcdp-address-description">({contractAddresses.SGDC.substring(0, 8)})</span>}:
               </span>
               <span className="dcdp-quantity">{parseFloat(sgdc).toLocaleString()}</span>
             </div>
